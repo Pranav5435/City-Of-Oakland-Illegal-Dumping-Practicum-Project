@@ -1,11 +1,10 @@
 class Media {
-    constructor(unprocessedMediaPath, date, latitudeCoords, longitudeCoords, mediaType) {
+    constructor(unprocessedMediaPath, date, latitudeCoords, longitudeCoords) {
         this._unprocessedMediaPath = unprocessedMediaPath;
         this._processedMediaPath = '';
         this._date = date;
         this._latitudeCoords = latitudeCoords;
         this._longitudeCoords = longitudeCoords;
-        this._type = mediaType;
         this._flagged = false;
     }
 
@@ -25,10 +24,6 @@ class Media {
         return this._unprocessedMediaPath;
     }
 
-    get type() {
-        return this._mediaType;
-    }
-
     set processed(processedMediaPath) {
         this._processedMediaPath = processedMediaPath;
     }
@@ -45,6 +40,16 @@ class Media {
         this._flagged = value;
     }
 
+    toJSON() {
+        return {
+            unprocessedMediaPath: this._unprocessedMediaPath,
+            processedMediaPath: this._processedMediaPath,
+            date: this._date,
+            latitudeCoords: this._latitudeCoords,
+            longitudeCoords: this._longitudeCoords,
+            flagged: this._flagged
+        };
+    }
 }
 
 if (typeof window !== 'undefined') {

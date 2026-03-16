@@ -17,7 +17,7 @@ const dialogDateSelect = document.getElementById('dialogDateSelect');
 const dialogTimeSelect = document.getElementById('dialogTimeSelect');
 
 let stagedFiles = [];
-let galleryItems = []; // { name, src, type }
+let galleryItems = []; // { name, src, type, file, metadata }
 let cameras = [];
 let dateOptions = [];
 let timeOptions = [];
@@ -95,7 +95,7 @@ function handleSubmit() {
 
     stagedFiles.forEach(file => {
         const src = URL.createObjectURL(file);
-        addToGallery(file.name, src, file.type, createEmptyMetadata());
+        addToGallery(file.name, src, file.type, file, createEmptyMetadata());
     });
 
     showToast(`✅ ${stagedFiles.length} media file${stagedFiles.length > 1 ? 's' : ''} submitted`, 'success');
@@ -104,8 +104,8 @@ function handleSubmit() {
     renderFileList();
 }
 
-function addToGallery(name, src, type, metadata) {
-    galleryItems.push({ name, src, type, metadata });
+function addToGallery(name, src, type, file, metadata) {
+    galleryItems.push({ name, src, type, file, metadata });
     renderGallery();
 }
 
@@ -389,7 +389,7 @@ metadataOverlay.addEventListener('click', event => {
     }
 });
 
-processBtn.addEventListener('click', () => {
+processBtn.addEventListener('click', async () => {
     const mediaCategory = getLockedMediaCategory();
 
     if (!mediaCategory) {
@@ -397,7 +397,139 @@ processBtn.addEventListener('click', () => {
         return;
     }
 
-    window.location.href = mediaCategory === 'video'
-        ? 'processed-dynamic.html'
-        : 'processed-static.html';
+    if (galleryItems.some(item => !isMetadataComplete(item.metadata))) {
+        showToast('Complete metadata for all media before processing', 'error');
+        return;
+    }
+
+    if (typeof window.showDirectoryPicker !== 'function') {
+        showToast('Local folder export requires a Chromium browser', 'error');
+        return;
+    }
+
+    const mediaType = mediaCategory === 'video' ? 'dynamic' : 'static';
+    const submissionFolder = `${mediaType}-submission`;
+    const destinationPage = mediaType === 'dynamic' ? 'processed-dynamic.html' : 'processed-static.html';
+    const now = new Date();
+    const sessionId = `session-${formatSessionTimestamp(now)}`;
+
+    try {
+        const rootHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+        const submissionHandle = await getOrCreateDirectory(rootHandle, submissionFolder);
+        const sessionHandle = await getOrCreateDirectory(submissionHandle, sessionId);
+
+        const usedFilenames = new Set();
+        const items = [];
+
+        for (let i = 0; i < galleryItems.length; i += 1) {
+            const item = galleryItems[i];
+            const originalName = item.file?.name || item.name;
+            const baseName = sanitizeFilename(originalName);
+            const outputName = ensureUniqueFilename(baseName, usedFilenames);
+            usedFilenames.add(outputName);
+
+            await writeFileToDirectory(sessionHandle, outputName, item.file);
+
+            const unprocessedMediaPath = `${submissionFolder}/${sessionId}/${outputName}`;
+            const mediaDateEpoch = toEpochSeconds(item.metadata.date, item.metadata.time);
+            const mediaObj = new Media(
+                unprocessedMediaPath,
+                mediaDateEpoch,
+                Number(item.metadata.latitude),
+                Number(item.metadata.longitude)
+            );
+
+            items.push({
+                mediaId: `m${i + 1}`,
+                ...mediaObj.toJSON()
+            });
+        }
+
+        const manifest = {
+            sessionId,
+            mediaType,
+            createdAtEpoch: Math.floor(now.getTime() / 1000),
+            items
+        };
+
+        const manifestName = `${sessionId}.json`;
+        const manifestRelativePath = `${submissionFolder}/${sessionId}/${manifestName}`;
+        await writeFileToDirectory(
+            sessionHandle,
+            manifestName,
+            new Blob([JSON.stringify(manifest, null, 2)], { type: 'application/json' })
+        );
+
+        sessionStorage.setItem('lastSessionManifest', JSON.stringify(manifest));
+        sessionStorage.setItem('lastSessionPath', manifestRelativePath);
+
+        showToast(`Session saved: ${manifestRelativePath}`, 'success');
+
+        setTimeout(() => {
+            window.location.href = destinationPage;
+        }, 800);
+    } catch (error) {
+        if (error?.name === 'AbortError') {
+            showToast('Session export cancelled', 'error');
+            return;
+        }
+
+        showToast('Failed to create local session files', 'error');
+    }
 });
+
+function formatSessionTimestamp(date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    const seconds = String(date.getSeconds()).padStart(2, '0');
+    return `${year}${month}${day}-${hours}${minutes}${seconds}`;
+}
+
+function sanitizeFilename(filename) {
+    const cleaned = filename.replace(/[<>:"/\\|?*\x00-\x1F]/g, '_').trim();
+    return cleaned || 'media';
+}
+
+function ensureUniqueFilename(filename, usedNames) {
+    if (!usedNames.has(filename)) {
+        return filename;
+    }
+
+    const dotIndex = filename.lastIndexOf('.');
+    const hasExtension = dotIndex > 0;
+    const stem = hasExtension ? filename.slice(0, dotIndex) : filename;
+    const extension = hasExtension ? filename.slice(dotIndex) : '';
+
+    let counter = 1;
+    let candidate = `${stem}-${counter}${extension}`;
+
+    while (usedNames.has(candidate)) {
+        counter += 1;
+        candidate = `${stem}-${counter}${extension}`;
+    }
+
+    return candidate;
+}
+
+function toEpochSeconds(dateValue, timeValue) {
+    const timestamp = new Date(`${dateValue}T${timeValue}:00`);
+    if (Number.isNaN(timestamp.getTime())) {
+        return Math.floor(Date.now() / 1000);
+    }
+
+    return Math.floor(timestamp.getTime() / 1000);
+}
+
+async function getOrCreateDirectory(parentHandle, dirName) {
+    return parentHandle.getDirectoryHandle(dirName, { create: true });
+}
+
+async function writeFileToDirectory(directoryHandle, filename, content) {
+    const fileHandle = await directoryHandle.getFileHandle(filename, { create: true });
+    const writable = await fileHandle.createWritable();
+    await writable.write(content);
+    await writable.close();
+}

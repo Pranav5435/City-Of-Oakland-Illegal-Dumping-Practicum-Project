@@ -74,6 +74,7 @@ Inside each session folder:
 - `date: epochTime`
 - `latitudeCoords: float`
 - `longitudeCoords: float`
+- `flagged: boolean` (required; defaults to `false`, set to `true` when trash is detected)
 
 Constructor:
 - `Media(unprocessedMediaPath, date, latitudeCoords, longitudeCoords)`
@@ -92,12 +93,12 @@ Recommended manifest shape:
   "createdAtEpoch": 1773684645,
   "items": [
     {
-      "mediaId": "m1",
       "unprocessedMediaPath": "static-submission/session-20260316-153045/image1.jpg",
       "processedMediaPath": "",
       "date": 1773684600,
       "latitudeCoords": 37.7614,
-      "longitudeCoords": -122.1826
+      "longitudeCoords": -122.1826,
+      "flagged": false
     }
   ]
 }
@@ -111,15 +112,20 @@ Required manifest properties:
 
 Required item properties:
 - `unprocessedMediaPath`
+- `processedMediaPath` (required; initialize to `""` until processing completes)
 - `date`
 - `latitudeCoords`
 - `longitudeCoords`
+- `flagged` (required; initialize to `false` before detection, update to `true` on trash detection)
 
 Optional item properties:
 - `mediaId`
-- `processedMediaPath`
 - `status`
 - `errors[]`
+
+`mediaId` guidance:
+- Not strictly required if `unprocessedMediaPath` is guaranteed unique within a session.
+- Recommended when items may be renamed, re-ordered, retried, or referenced by asynchronous jobs.
 
 ## 9. Backend API Contract (Recommended)
 ### 9.1 Create Session + Upload
