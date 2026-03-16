@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Oakland Dumping</title>
+    <link rel="stylesheet" href="../styles/styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🏙️ Oakland Illegal Dumping Detection</h1>
+            <p class="subtitle">Upload footage or images for review</p>
+        </header>
+
+        <div class="main-layout">
+            <!-- Left: Upload Panel -->
+            <div class="upload-panel">
+                <div class="panel-label">📂 File Submission</div>
+
+                <div class="dropzone" id="dropzone" onclick="document.getElementById('fileInput').click()">
+                    <div class="dropzone-icon">🎞️</div>
+                    <div class="dropzone-text">Drop files here or <span>browse</span></div>
+                    <div class="dropzone-sub">PNG, JPG, JPEG, WEBP, MP4, MOV, WEBM — up to 10 files (images OR videos, no mixing)</div>
+                </div>
+
+                <input type="file" id="fileInput" accept="image/*,video/*" multiple>
+
+                <div class="selected-files" id="selectedFiles">
+                    <div class="selected-files-label">Selected</div>
+                    <div id="fileList"></div>
+                </div>
+
+                <div class="btn-row">
+                    <button class="btn-upload" onclick="document.getElementById('fileInput').click()">⬆ Upload</button>
+                    <button class="btn-submit" id="submitBtn" disabled onclick="handleSubmit()">✓ Submit</button>
+                </div>
+            </div>
+
+            <!-- Right: Gallery Panel -->
+            <div class="gallery-panel">
+                <div class="panel-label">🖼️ Uploaded Media</div>
+                <div id="galleryEmpty" class="gallery-empty">
+                    <div class="gallery-empty-icon">📭</div>
+                    <div class="gallery-empty-text">No media uploaded yet</div>
+                </div>
+                <div class="image-grid" id="imageGrid"></div>
+                <button type="button" class="btn-process" id="processBtn" disabled>Process</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="metadata-overlay" id="metadataOverlay" aria-hidden="true">
+        <div class="metadata-dialog" role="dialog" aria-modal="true" aria-labelledby="metadataDialogTitle">
+            <div class="metadata-dialog-header">
+                <h2 id="metadataDialogTitle">Media Metadata</h2>
+                <button type="button" class="dialog-close" id="metadataCloseBtn" aria-label="Close">✕</button>
+            </div>
+
+            <div class="meta-group">
+                <label for="dialogCameraSelect">Camera</label>
+                <select id="dialogCameraSelect" class="meta-select">
+                    <option value="">Select camera</option>
+                </select>
+            </div>
+
+            <div class="meta-group">
+                <label>Latitude / Longitude</label>
+                <div class="coordinates-box" id="dialogCoordinatesBox">Select a camera to view coordinates</div>
+                <div class="camera-area" id="dialogCameraArea"></div>
+            </div>
+
+            <div class="meta-group">
+                <label for="dialogDateSelect">Date</label>
+                <select id="dialogDateSelect" class="meta-select">
+                    <option value="">Select date</option>
+                </select>
+            </div>
+
+            <div class="meta-group">
+                <label for="dialogTimeSelect">Time</label>
+                <select id="dialogTimeSelect" class="meta-select">
+                    <option value="">Select time</option>
+                </select>
+            </div>
+
+            <div class="dialog-actions">
+                <button type="button" class="btn-upload" id="metadataCancelBtn">Cancel</button>
+                <button type="button" class="btn-submit" id="metadataSaveBtn">Save Metadata</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <script src="../scripts/script.js"></script>
+</body>
+</html>

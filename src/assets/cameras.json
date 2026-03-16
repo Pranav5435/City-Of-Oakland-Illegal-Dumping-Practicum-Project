@@ -1,0 +1,92 @@
+[
+    {
+        "name": "Camera 101 - International Blvd & 73rd Ave",
+        "latitude": 37.7614,
+        "longitude": -122.1826,
+        "area": "East Oakland"
+    },
+    {
+        "name": "Camera 102 - Mandela Pkwy & 7th St",
+        "latitude": 37.8095,
+        "longitude": -122.2969,
+        "area": "West Oakland"
+    },
+    {
+        "name": "Camera 103 - Foothill Blvd & Seminary Ave",
+        "latitude": 37.7731,
+        "longitude": -122.1842,
+        "area": "Central East Oakland"
+    },
+    {
+        "name": "Camera 104 - Hegenberger Rd & Edes Ave",
+        "latitude": 37.7394,
+        "longitude": -122.1955,
+        "area": "Coliseum District"
+    },
+    {
+        "name": "Camera 105 - MacArthur Blvd & High St",
+        "latitude": 37.7914,
+        "longitude": -122.2107,
+        "area": "Dimond District"
+    },
+    {
+        "name": "Camera 106 - Broadway & 14th St",
+        "latitude": 37.8036,
+        "longitude": -122.2711,
+        "area": "Downtown Oakland"
+    },
+    {
+        "name": "Camera 107 - Grand Ave & Lake Park Ave",
+        "latitude": 37.8111,
+        "longitude": -122.2478,
+        "area": "Lake Merritt"
+    },
+    {
+        "name": "Camera 108 - Fruitvale Ave & E 12th St",
+        "latitude": 37.7748,
+        "longitude": -122.2246,
+        "area": "Fruitvale"
+    },
+    {
+        "name": "Camera 109 - Telegraph Ave & 51st St",
+        "latitude": 37.8366,
+        "longitude": -122.2629,
+        "area": "Temescal"
+    },
+    {
+        "name": "Camera 110 - College Ave & Alcatraz Ave",
+        "latitude": 37.8524,
+        "longitude": -122.2523,
+        "area": "Rockridge"
+    },
+    {
+        "name": "Camera 111 - Park Blvd & E 18th St",
+        "latitude": 37.7961,
+        "longitude": -122.2415,
+        "area": "Cleveland Heights"
+    },
+    {
+        "name": "Camera 112 - San Pablo Ave & 40th St",
+        "latitude": 37.8278,
+        "longitude": -122.2802,
+        "area": "Longfellow"
+    },
+    {
+        "name": "Camera 113 - Mountain Blvd & Keller Ave",
+        "latitude": 37.7822,
+        "longitude": -122.1574,
+        "area": "Millsmont"
+    },
+    {
+        "name": "Camera 114 - 98th Ave & Bancroft Ave",
+        "latitude": 37.7449,
+        "longitude": -122.1648,
+        "area": "Elmhurst"
+    },
+    {
+        "name": "Camera 115 - Joaquin Miller Rd & Skyline Blvd",
+        "latitude": 37.8118,
+        "longitude": -122.1836,
+        "area": "Oakland Hills"
+    }
+]
