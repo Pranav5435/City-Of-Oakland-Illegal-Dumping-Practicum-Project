@@ -5,21 +5,203 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Processed Static Media</title>
     <link rel="stylesheet" href="../styles/styles.css">
+    <style>
+        .results-grid {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+            margin-top: 24px;
+        }
+
+        .result-row {
+            background: var(--card-bg, #16213e);
+            border: 1px solid var(--border, #0f3460);
+            border-radius: 12px;
+            padding: 20px;
+        }
+
+        .result-row h3 {
+            font-size: 0.95rem;
+            color: #aaa;
+            margin-bottom: 14px;
+            word-break: break-all;
+        }
+
+        .image-pair {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 16px;
+            margin-bottom: 16px;
+        }
+
+        .image-pair figure {
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .image-pair figcaption {
+            font-size: 0.8rem;
+            color: #aaa;
+            text-align: center;
+        }
+
+        .image-pair img {
+            width: 100%;
+            border-radius: 8px;
+            display: block;
+            object-fit: cover;
+        }
+
+        .detection-failed {
+            background: #0f3460;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 200px;
+            color: #aaa;
+            font-size: 0.85rem;
+        }
+
+        .meta-bar {
+            display: flex;
+            gap: 16px;
+        }
+
+        .meta-stat {
+            flex: 1;
+            background: #0f3460;
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+        }
+
+        .meta-stat .value {
+            font-size: 1.6rem;
+            font-weight: bold;
+            color: #e94560;
+        }
+
+        .meta-stat .label {
+            font-size: 0.75rem;
+            color: #aaa;
+            margin-top: 4px;
+        }
+
+        .processing-indicator {
+            text-align: center;
+            color: #aaa;
+            padding: 20px 0;
+            font-size: 0.9rem;
+        }
+
+        .empty-state {
+            color: #aaa;
+            padding: 40px 0;
+        }
+
+        .empty-state a { color: #e94560; }
+    </style>
 </head>
 <body>
     <div class="container">
         <header>
-            <h1>Processed Static Media</h1>
-            <p class="subtitle">Image processing results page placeholder</p>
+            <h1>Detection Results</h1>
+            <p class="subtitle">AI-annotated images with trash detection</p>
         </header>
 
         <div class="gallery-panel">
-            <div class="panel-label">Status</div>
-            <p>Static (image) media processing page is ready for backend integration.</p>
-            <div class="btn-row" style="margin-top: 20px; max-width: 320px;">
+            <div class="panel-label">Results</div>
+
+            <div id="processingIndicator" class="processing-indicator" style="display:none">
+                ⏳ Running detection on images...
+            </div>
+
+            <div id="emptyState" class="empty-state" style="display:none">
+                <p>No results found. <a href="index.html">Go back and upload images.</a></p>
+            </div>
+
+            <div id="resultsGrid" class="results-grid"></div>
+
+            <div class="btn-row" style="margin-top: 24px; max-width: 320px;">
                 <button class="btn-upload" type="button" onclick="window.location.href='index.html'">Back</button>
             </div>
         </div>
     </div>
+
+<script>
+    const BACKEND_URL = 'http://127.0.0.1:8000/api/detect';
+
+    async function runDetectionAndRender() {
+        const raw = sessionStorage.getItem('lastSessionManifest');
+        const originalImages = JSON.parse(sessionStorage.getItem('lastSessionImages') || '[]');
+
+        if (!raw || originalImages.length === 0) {
+            document.getElementById('emptyState').style.display = 'block';
+            return;
+        }
+
+        const grid = document.getElementById('resultsGrid');
+        const indicator = document.getElementById('processingIndicator');
+        indicator.style.display = 'block';
+
+        for (const { name, dataUrl } of originalImages) {
+            const blob = await fetch(dataUrl).then(r => r.blob());
+            const formData = new FormData();
+            formData.append('image', blob, name);
+            formData.append('min_confidence', '0.5');
+
+            let annotatedSrc = null, count = 0, avgConf = 0;
+
+            try {
+                const res = await fetch(BACKEND_URL, { method: 'POST', body: formData });
+                if (res.ok) {
+                    const data = await res.json();
+                    annotatedSrc = `data:image/jpeg;base64,${data.annotated_image}`;
+                    count = data.count;
+                    avgConf = data.average_confidence;
+                }
+            } catch (err) {
+                console.error(`Detection failed for ${name}:`, err);
+            }
+
+            const row = document.createElement('div');
+            row.className = 'result-row';
+            row.innerHTML = `
+                <h3>📷 ${name}</h3>
+                <div class="image-pair">
+                    <figure>
+                        <img src="${dataUrl}" alt="Original">
+                        <figcaption>Original</figcaption>
+                    </figure>
+                    <figure>
+                        ${annotatedSrc
+                            ? `<img src="${annotatedSrc}" alt="Annotated">`
+                            : `<div class="detection-failed">Detection failed</div>`
+                        }
+                        <figcaption>Annotated</figcaption>
+                    </figure>
+                </div>
+                <div class="meta-bar">
+                    <div class="meta-stat">
+                        <div class="value">${count}</div>
+                        <div class="label">Trash Items Found</div>
+                    </div>
+                    <div class="meta-stat">
+                        <div class="value">${(avgConf * 100).toFixed(1)}%</div>
+                        <div class="label">Avg Confidence</div>
+                    </div>
+                </div>
+            `;
+            grid.appendChild(row);
+        }
+
+        indicator.style.display = 'none';
+    }
+
+    runDetectionAndRender();
+</script>
 </body>
 </html>

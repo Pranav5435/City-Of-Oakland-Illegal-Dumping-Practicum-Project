@@ -46,9 +46,7 @@ function addFiles(files) {
         showToast(`${rejectedCount} file${rejectedCount > 1 ? 's' : ''} ignored (images/videos only)`, 'error');
     }
 
-    if (supportedFiles.length === 0) {
-        return;
-    }
+    if (supportedFiles.length === 0) return;
 
     const batchCategory = getBatchMediaCategory(supportedFiles);
     if (!batchCategory) {
@@ -62,8 +60,7 @@ function addFiles(files) {
         return;
     }
 
-    const combined = [...stagedFiles, ...supportedFiles].slice(0, 10);
-    stagedFiles = combined;
+    stagedFiles = [...stagedFiles, ...supportedFiles].slice(0, 10);
     renderFileList();
 }
 
@@ -167,19 +164,13 @@ function getMediaCategory(mimeType) {
 }
 
 function getBatchMediaCategory(files) {
-    const categories = [...new Set(files.map(file => getMediaCategory(file.type)))].filter(Boolean);
+    const categories = [...new Set(files.map(f => getMediaCategory(f.type)))].filter(Boolean);
     return categories.length === 1 ? categories[0] : '';
 }
 
 function getLockedMediaCategory() {
-    if (stagedFiles.length > 0) {
-        return getMediaCategory(stagedFiles[0].type);
-    }
-
-    if (galleryItems.length > 0) {
-        return getMediaCategory(galleryItems[0].type);
-    }
-
+    if (stagedFiles.length > 0) return getMediaCategory(stagedFiles[0].type);
+    if (galleryItems.length > 0) return getMediaCategory(galleryItems[0].type);
     return '';
 }
 
@@ -199,10 +190,7 @@ async function initializeMetadata() {
 async function loadCameras() {
     try {
         const response = await fetch('../assets/cameras.json');
-        if (!response.ok) {
-            throw new Error('Failed to load camera data');
-        }
-
+        if (!response.ok) throw new Error('Failed to load camera data');
         cameras = await response.json();
     } catch (error) {
         showToast('Unable to load camera metadata', 'error');
@@ -212,31 +200,22 @@ async function loadCameras() {
 function buildDateOptions() {
     const options = [];
     const today = new Date();
-
     for (let offset = 0; offset < 30; offset += 1) {
         const date = new Date(today);
         date.setDate(today.getDate() - offset);
-        options.push({
-            value: formatDate(date),
-            label: formatDateLabel(date)
-        });
+        options.push({ value: formatDate(date), label: formatDateLabel(date) });
     }
-
     return options;
 }
 
 function buildTimeOptions() {
     const options = [];
-
     for (let hour = 0; hour < 24; hour += 1) {
         for (let minute = 0; minute < 60; minute += 30) {
-            const hourLabel = String(hour).padStart(2, '0');
-            const minuteLabel = String(minute).padStart(2, '0');
-            const value = `${hourLabel}:${minuteLabel}`;
+            const value = `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
             options.push({ value, label: value });
         }
     }
-
     return options;
 }
 
@@ -249,10 +228,7 @@ function formatDate(date) {
 
 function formatDateLabel(date) {
     return date.toLocaleDateString('en-US', {
-        weekday: 'short',
-        year: 'numeric',
-        month: 'short',
-        day: 'numeric'
+        weekday: 'short', year: 'numeric', month: 'short', day: 'numeric'
     });
 }
 
@@ -290,12 +266,10 @@ function populateDialogCameraOptions() {
 
 function populateSelectOptions(selectElement, options, placeholder) {
     selectElement.innerHTML = '';
-
     const defaultOption = document.createElement('option');
     defaultOption.value = '';
     defaultOption.textContent = placeholder;
     selectElement.appendChild(defaultOption);
-
     options.forEach(({ value, label }) => {
         const option = document.createElement('option');
         option.value = value;
@@ -310,27 +284,18 @@ function updateDialogCoordinateDisplay(metadata) {
         dialogCameraArea.textContent = '';
         return;
     }
-
     const camera = cameras[Number(metadata.cameraIndex)];
     if (!camera) {
         dialogCoordinatesBox.textContent = 'Camera not found';
         dialogCameraArea.textContent = '';
         return;
     }
-
     dialogCoordinatesBox.textContent = `${camera.latitude}, ${camera.longitude}`;
     dialogCameraArea.textContent = `Area: ${camera.area}`;
 }
 
 function createEmptyMetadata() {
-    return {
-        cameraIndex: '',
-        latitude: '',
-        longitude: '',
-        area: '',
-        date: '',
-        time: ''
-    };
+    return { cameraIndex: '', latitude: '', longitude: '', area: '', date: '', time: '' };
 }
 
 function isMetadataComplete(metadata) {
@@ -345,11 +310,9 @@ function updateProcessButtonState() {
 
 dialogCameraSelect.addEventListener('change', event => {
     if (activeMetadataIndex < 0) return;
-
     const selectedIndex = event.target.value;
     const metadata = galleryItems[activeMetadataIndex].metadata;
     metadata.cameraIndex = selectedIndex;
-
     if (selectedIndex === '') {
         metadata.latitude = '';
         metadata.longitude = '';
@@ -360,7 +323,6 @@ dialogCameraSelect.addEventListener('change', event => {
         metadata.longitude = String(camera.longitude);
         metadata.area = camera.area;
     }
-
     updateDialogCoordinateDisplay(metadata);
 });
 
@@ -384,9 +346,7 @@ metadataCancelBtn.addEventListener('click', closeMetadataDialog);
 metadataCloseBtn.addEventListener('click', closeMetadataDialog);
 
 metadataOverlay.addEventListener('click', event => {
-    if (event.target === metadataOverlay) {
-        closeMetadataDialog();
-    }
+    if (event.target === metadataOverlay) closeMetadataDialog();
 });
 
 processBtn.addEventListener('click', async () => {
@@ -402,80 +362,115 @@ processBtn.addEventListener('click', async () => {
         return;
     }
 
-    if (typeof window.showDirectoryPicker !== 'function') {
-        showToast('Local folder export requires a Chromium browser', 'error');
-        return;
-    }
-
     const mediaType = mediaCategory === 'video' ? 'dynamic' : 'static';
-    const submissionFolder = `${mediaType}-submission`;
     const destinationPage = mediaType === 'dynamic' ? 'processed-dynamic.html' : 'processed-static.html';
     const now = new Date();
     const sessionId = `session-${formatSessionTimestamp(now)}`;
 
+    // 1. Save images to sessionStorage for processed-static.html
+    let imageEntries = [];
     try {
-        const rootHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
-        const submissionHandle = await getOrCreateDirectory(rootHandle, submissionFolder);
-        const sessionHandle = await getOrCreateDirectory(submissionHandle, sessionId);
+        imageEntries = await Promise.all(
+            galleryItems.map(item => new Promise((resolve, reject) => {
+                const reader = new FileReader();
+                reader.onload = () => resolve({ name: item.name, dataUrl: reader.result });
+                reader.onerror = reject;
+                reader.readAsDataURL(item.file);
+            }))
+        );
+        sessionStorage.setItem('lastSessionImages', JSON.stringify(imageEntries));
+    } catch (err) {
+        showToast('Failed to prepare images for processing', 'error');
+        console.error(err);
+        return;
+    }
 
-        const usedFilenames = new Set();
-        const items = [];
+    // 2. Save to local folder if directory picker is available
+    if (typeof window.showDirectoryPicker === 'function') {
+        try {
+            const submissionFolder = `${mediaType}-submission`;
+            const rootHandle = await window.showDirectoryPicker({ mode: 'readwrite' });
+            const submissionHandle = await getOrCreateDirectory(rootHandle, submissionFolder);
+            const sessionHandle = await getOrCreateDirectory(submissionHandle, sessionId);
 
-        for (let i = 0; i < galleryItems.length; i += 1) {
-            const item = galleryItems[i];
-            const originalName = item.file?.name || item.name;
-            const baseName = sanitizeFilename(originalName);
-            const outputName = ensureUniqueFilename(baseName, usedFilenames);
-            usedFilenames.add(outputName);
+            const usedFilenames = new Set();
+            const items = [];
 
-            await writeFileToDirectory(sessionHandle, outputName, item.file);
+            for (let i = 0; i < galleryItems.length; i += 1) {
+                const item = galleryItems[i];
+                const originalName = item.file?.name || item.name;
+                const baseName = sanitizeFilename(originalName);
+                const outputName = ensureUniqueFilename(baseName, usedFilenames);
+                usedFilenames.add(outputName);
 
-            const unprocessedMediaPath = `${submissionFolder}/${sessionId}/${outputName}`;
-            const mediaDateEpoch = toEpochSeconds(item.metadata.date, item.metadata.time);
-            const mediaObj = new Media(
-                unprocessedMediaPath,
-                mediaDateEpoch,
-                Number(item.metadata.latitude),
-                Number(item.metadata.longitude)
+                await writeFileToDirectory(sessionHandle, outputName, item.file);
+
+                // Run detection and attach results to manifest
+                let trashCount = 0;
+                let avgConfidence = 0.0;
+                try {
+                    const formData = new FormData();
+                    formData.append('image', item.file, originalName);
+                    formData.append('min_confidence', '0.5');
+                    const res = await fetch('http://127.0.0.1:8000/api/detect', { method: 'POST', body: formData });
+                    if (res.ok) {
+                        const data = await res.json();
+                        trashCount = data.count;
+                        avgConfidence = data.average_confidence;
+                    } else {
+                        console.warn(`Detection returned ${res.status} for ${originalName}`);
+                    }
+                } catch (detErr) {
+                    console.warn(`Detection failed for ${originalName}:`, detErr);
+                }
+
+                const unprocessedMediaPath = `${submissionFolder}/${sessionId}/${outputName}`;
+                const mediaDateEpoch = toEpochSeconds(item.metadata.date, item.metadata.time);
+                const mediaObj = new Media(
+                    unprocessedMediaPath,
+                    mediaDateEpoch,
+                    Number(item.metadata.latitude),
+                    Number(item.metadata.longitude),
+                    avgConfidence,
+                    trashCount
+                );
+
+                items.push({ mediaId: `m${i + 1}`, ...mediaObj.toJSON() });
+            }
+
+            const manifest = {
+                sessionId,
+                mediaType,
+                createdAtEpoch: Math.floor(now.getTime() / 1000),
+                items
+            };
+
+            const manifestName = `${sessionId}.json`;
+            const manifestRelativePath = `${submissionFolder}/${sessionId}/${manifestName}`;
+            await writeFileToDirectory(
+                sessionHandle,
+                manifestName,
+                new Blob([JSON.stringify(manifest, null, 2)], { type: 'application/json' })
             );
 
-            items.push({
-                mediaId: `m${i + 1}`,
-                ...mediaObj.toJSON()
-            });
+            sessionStorage.setItem('lastSessionManifest', JSON.stringify(manifest));
+            sessionStorage.setItem('lastSessionPath', manifestRelativePath);
+            showToast(`Session saved: ${manifestRelativePath}`, 'success');
+
+        } catch (error) {
+            if (error?.name === 'AbortError') {
+                showToast('Folder save skipped', 'error');
+            } else {
+                showToast('Failed to save session folder', 'error');
+                console.error(error);
+            }
         }
-
-        const manifest = {
-            sessionId,
-            mediaType,
-            createdAtEpoch: Math.floor(now.getTime() / 1000),
-            items
-        };
-
-        const manifestName = `${sessionId}.json`;
-        const manifestRelativePath = `${submissionFolder}/${sessionId}/${manifestName}`;
-        await writeFileToDirectory(
-            sessionHandle,
-            manifestName,
-            new Blob([JSON.stringify(manifest, null, 2)], { type: 'application/json' })
-        );
-
-        sessionStorage.setItem('lastSessionManifest', JSON.stringify(manifest));
-        sessionStorage.setItem('lastSessionPath', manifestRelativePath);
-
-        showToast(`Session saved: ${manifestRelativePath}`, 'success');
-
-        setTimeout(() => {
-            window.location.href = destinationPage;
-        }, 800);
-    } catch (error) {
-        if (error?.name === 'AbortError') {
-            showToast('Session export cancelled', 'error');
-            return;
-        }
-
-        showToast('Failed to create local session files', 'error');
     }
+
+    // 3. Always redirect
+    setTimeout(() => {
+        window.location.href = destinationPage;
+    }, 800);
 });
 
 function formatSessionTimestamp(date) {
@@ -494,32 +489,23 @@ function sanitizeFilename(filename) {
 }
 
 function ensureUniqueFilename(filename, usedNames) {
-    if (!usedNames.has(filename)) {
-        return filename;
-    }
-
+    if (!usedNames.has(filename)) return filename;
     const dotIndex = filename.lastIndexOf('.');
     const hasExtension = dotIndex > 0;
     const stem = hasExtension ? filename.slice(0, dotIndex) : filename;
-    const extension = hasExtension ? filename.slice(dotIndex) : '';
-
+    const ext = hasExtension ? filename.slice(dotIndex) : '';
     let counter = 1;
-    let candidate = `${stem}-${counter}${extension}`;
-
+    let candidate = `${stem}-${counter}${ext}`;
     while (usedNames.has(candidate)) {
         counter += 1;
-        candidate = `${stem}-${counter}${extension}`;
+        candidate = `${stem}-${counter}${ext}`;
     }
-
     return candidate;
 }
 
 function toEpochSeconds(dateValue, timeValue) {
     const timestamp = new Date(`${dateValue}T${timeValue}:00`);
-    if (Number.isNaN(timestamp.getTime())) {
-        return Math.floor(Date.now() / 1000);
-    }
-
+    if (Number.isNaN(timestamp.getTime())) return Math.floor(Date.now() / 1000);
     return Math.floor(timestamp.getTime() / 1000);
 }
 
