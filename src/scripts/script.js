@@ -1,3 +1,32 @@
+// ========================================
+// IndexedDB video storage (avoids sessionStorage size limit)
+// ========================================
+const _IDB_NAME    = 'oaklandDumping';
+const _IDB_STORE   = 'pendingVideos';
+
+function _openDB() {
+    return new Promise((resolve, reject) => {
+        const req = indexedDB.open(_IDB_NAME, 1);
+        req.onupgradeneeded = e => e.target.result.createObjectStore(_IDB_STORE, { keyPath: 'id' });
+        req.onsuccess = e => resolve(e.target.result);
+        req.onerror   = e => reject(e.target.error);
+    });
+}
+
+async function saveVideosForProcessing(videoFiles) {
+    const db = await _openDB();
+    return new Promise((resolve, reject) => {
+        const tx = db.transaction(_IDB_STORE, 'readwrite');
+        const store = tx.objectStore(_IDB_STORE);
+        store.clear();
+        videoFiles.forEach((v, i) => store.put({ id: i, name: v.name, file: v.file }));
+        tx.oncomplete = () => resolve();
+        tx.onerror    = e => reject(e.target.error);
+    });
+}
+
+// ========================================
+
 const fileInput = document.getElementById('fileInput');
 const dropzone = document.getElementById('dropzone');
 const fileList = document.getElementById('fileList');
@@ -367,10 +396,10 @@ processBtn.addEventListener('click', async () => {
     const now = new Date();
     const sessionId = `session-${formatSessionTimestamp(now)}`;
 
-    // 1. Save images to sessionStorage for processed-static.html
-    let imageEntries = [];
+    // 1. Read all files into base64 dataUrls
+    let mediaEntries = [];
     try {
-        imageEntries = await Promise.all(
+        mediaEntries = await Promise.all(
             galleryItems.map(item => new Promise((resolve, reject) => {
                 const reader = new FileReader();
                 reader.onload = () => resolve({ name: item.name, dataUrl: reader.result });
@@ -378,14 +407,30 @@ processBtn.addEventListener('click', async () => {
                 reader.readAsDataURL(item.file);
             }))
         );
-        sessionStorage.setItem('lastSessionImages', JSON.stringify(imageEntries));
     } catch (err) {
-        showToast('Failed to prepare images for processing', 'error');
+        showToast('Failed to prepare media for processing', 'error');
         console.error(err);
         return;
     }
 
-    // 2. Save to local folder if directory picker is available
+    // 2. Save to the correct storage depending on media type
+    if (mediaType === 'static') {
+        // Images are small enough for sessionStorage
+        sessionStorage.setItem('lastSessionImages', JSON.stringify(mediaEntries));
+    } else {
+        // Videos are too large for sessionStorage — use IndexedDB instead
+        try {
+            await saveVideosForProcessing(
+                galleryItems.map(item => ({ name: item.name, file: item.file }))
+            );
+        } catch (err) {
+            showToast('Failed to store video for processing', 'error');
+            console.error(err);
+            return;
+        }
+    }
+
+    // 3. Save to local folder if directory picker is available
     if (typeof window.showDirectoryPicker === 'function') {
         try {
             const submissionFolder = `${mediaType}-submission`;
@@ -405,23 +450,25 @@ processBtn.addEventListener('click', async () => {
 
                 await writeFileToDirectory(sessionHandle, outputName, item.file);
 
-                // Run detection and attach results to manifest
+                // Only run detection for static images at this stage
                 let trashCount = 0;
                 let avgConfidence = 0.0;
-                try {
-                    const formData = new FormData();
-                    formData.append('image', item.file, originalName);
-                    formData.append('min_confidence', '0.5');
-                    const res = await fetch('http://127.0.0.1:8000/api/detect', { method: 'POST', body: formData });
-                    if (res.ok) {
-                        const data = await res.json();
-                        trashCount = data.count;
-                        avgConfidence = data.average_confidence;
-                    } else {
-                        console.warn(`Detection returned ${res.status} for ${originalName}`);
+                if (mediaType === 'static') {
+                    try {
+                        const formData = new FormData();
+                        formData.append('image', item.file, originalName);
+                        formData.append('min_confidence', '0.5');
+                        const res = await fetch('http://127.0.0.1:8000/api/detect', { method: 'POST', body: formData });
+                        if (res.ok) {
+                            const data = await res.json();
+                            trashCount = data.count;
+                            avgConfidence = data.average_confidence;
+                        } else {
+                            console.warn(`Detection returned ${res.status} for ${originalName}`);
+                        }
+                    } catch (detErr) {
+                        console.warn(`Detection failed for ${originalName}:`, detErr);
                     }
-                } catch (detErr) {
-                    console.warn(`Detection failed for ${originalName}:`, detErr);
                 }
 
                 const unprocessedMediaPath = `${submissionFolder}/${sessionId}/${outputName}`;
@@ -467,7 +514,7 @@ processBtn.addEventListener('click', async () => {
         }
     }
 
-    // 3. Always redirect
+    // 4. Always redirect
     setTimeout(() => {
         window.location.href = destinationPage;
     }, 800);
