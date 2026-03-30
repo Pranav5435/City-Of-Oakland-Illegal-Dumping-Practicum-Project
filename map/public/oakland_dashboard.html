@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Oakland Illegal Dumping</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.css"/>
+<style>
+html,body,#map{height:100%;margin:0;padding:0;}
+.leaflet-popup-content-wrapper{background:#000!important;color:#fff!important;border:1px solid #444;border-radius:0!important;}
+.panel{position:fixed;background:rgba(0,0,0,.95);color:#fff;padding:20px;z-index:9999;font-family:monospace;border-radius:4px;border:1px solid #333;}
+.top-ten{top:20px;left:20px;width:280px;border-top:4px solid #FF3131;}
+.report-form{bottom:20px;left:20px;width:320px;border-bottom:4px solid #00D1FF;}
+input{background:#111;border:1px solid #333;color:#fff;width:100%;padding:12px;margin:8px 0;outline:none;box-sizing:border-box;}
+button{width:100%;padding:12px;background:#00D1FF;color:#000;font-weight:bold;border:none;cursor:pointer;}
+#loading{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,.85);
+          color:#00D1FF;font-family:monospace;padding:20px 32px;border:1px solid #333;z-index:99999;}
+.legend-drawer{position:fixed;right:20px;bottom:20px;z-index:9999;font-family:monospace;}
+.legend-toggle{background:rgba(0,0,0,.92);color:#00D1FF;border:1px solid #00D1FF;padding:10px 12px;font-size:10px;cursor:pointer;font-weight:bold;}
+.legend-panel{margin-top:8px;width:220px;background:rgba(0,0,0,.94);border:1px solid #333;padding:12px;max-height:0;overflow:hidden;opacity:0;transform:translateY(8px);transition:max-height .25s ease,opacity .2s ease,transform .2s ease;}
+.legend-drawer.open .legend-panel{max-height:220px;opacity:1;transform:translateY(0);}
+.legend-title{font-size:10px;color:#ccc;margin-bottom:8px;letter-spacing:.4px;}
+.legend-row{display:flex;align-items:center;gap:8px;font-size:10px;color:#ddd;margin:5px 0;}
+.legend-dot{width:10px;height:10px;border-radius:50%;border:1px solid rgba(255,255,255,.4);display:inline-block;}
+</style>
+</head>
+<body>
+<div id="loading">Loading map data…</div>
+<div id="map"></div>
+
+<div class="panel top-ten" id="mode_panel">
+  <div id="mode_title" style="font-size:10px;color:#FF3131;font-weight:bold;margin-bottom:10px;">TOP 10 RISK LOCATIONS</div>
+  <div id="mode_list"><div style="font-size:10px;margin-bottom:8px;border-bottom:1px solid #222;padding-bottom:4px;"><b style="color:#FF3131;">99%</b> West Grand Avenue</div><div style="font-size:10px;margin-bottom:8px;border-bottom:1px solid #222;padding-bottom:4px;"><b style="color:#FF3131;">99%</b> Mead Avenue</div><div style="font-size:10px;margin-bottom:8px;border-bottom:1px solid #222;padding-bottom:4px;"><b style="color:#FF3131;">98%</b> 28th Street</div><div style="font-size:10px;margin-bottom:8px;border-bottom:1px solid #222;padding-bottom:4px;"><b style="color:#FF3131;">98%</b> West Grand Avenue</div><div style="font-size:10px;margin-bottom:8px;border-bottom:1px solid #222;padding-bottom:4px;"><b style="color:#FF3131;">97%</b> Martin Luther King Junior Way</div><div style="font-size:10px;margin-bottom:8px;border-bottom:1px solid #222;padding-bottom:4px;"><b style="color:#FF3131;">97%</b> Martin Luther King Junior Way</div><div style="font-size:10px;margin-bottom:8px;border-bottom:1px solid #222;padding-bottom:4px;"><b style="color:#FF3131;">97%</b> Peralta Street</div><div style="font-size:10px;margin-bottom:8px;border-bottom:1px solid #222;padding-bottom:4px;"><b style="color:#FF3131;">97%</b> 24th Street</div><div style="font-size:10px;margin-bottom:8px;border-bottom:1px solid #222;padding-bottom:4px;"><b style="color:#FF3131;">97%</b> West Street</div><div style="font-size:10px;margin-bottom:8px;border-bottom:1px solid #222;padding-bottom:4px;"><b style="color:#FF3131;">96%</b> 31st Street</div></div>
+  <div style="margin-top:10px;">
+    <a href="#" id="mode_toggle" style="color:#00D1FF;font-size:10px;text-decoration:none;">OPEN LEAST-LIKELY VIEW</a>
+  </div>
+</div>
+
+<div class="panel report-form">
+  <div style="font-size:10px;color:#00D1FF;font-weight:bold;">Enter location of illegal dumping occurrence</div>
+  <input id="place_in" placeholder="Street or Landmark..."/>
+  <button id="gen_btn" onclick="submitPlace()">Enter</button>
+  <div id="submit_status" style="font-size:10px;color:#8aa;margin-top:8px;min-height:12px;"></div>
+</div>
+
+<div style="position:fixed;top:20px;right:20px;background:rgba(0,0,0,.9);color:#fff;padding:20px;
+            border-left:4px solid #FFFF00;font-family:sans-serif;z-index:9999;">
+  <div id="report_count" style="font-size:32px;font-weight:900;">327609</div>
+  <div style="font-size:10px;color:#39FF14;">Illegal Dumping Reports</div>
+  <div style="font-size:10px;color:#FFFF00;margin-top:10px;">LIVE TIME</div>
+  <div id="live_time" style="font-size:16px;font-weight:700;color:#00D1FF;letter-spacing:1px;">--:--:--</div>
+</div>
+
+<div class="legend-drawer" id="legend_drawer">
+  <button class="legend-toggle" id="legend_toggle" aria-expanded="false">SHOW DANGER LEGEND</button>
+  <div class="legend-panel" id="legend_panel" aria-hidden="true">
+    <div class="legend-title">RISK LEVELS</div>
+    <div class="legend-row"><span class="legend-dot" style="background:#FF3131"></span>High Risk (81-99%)</div>
+    <div class="legend-row"><span class="legend-dot" style="background:#FFFF00"></span>Medium Risk (40-80%)</div>
+    <div class="legend-row"><span class="legend-dot" style="background:#39FF14"></span>Low Risk (10-39%)</div>
+    <div class="legend-row"><span class="legend-dot" style="background:#00D1FF"></span>User Report</div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.js"></script>
+<script>
+// ── map init ──────────────────────────────────────────────────────────────
+const map = L.map('map', {preferCanvas: true, zoomControl: false});
+map.fitBounds([[37.708323,-122.337153],[37.83195,-122.157048]]);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+  attribution: '&copy; OpenStreetMap contributors &copy; CARTO',
+  subdomains: 'abcd', maxZoom: 20
+}).addTo(map);
+
+// ── helpers ───────────────────────────────────────────────────────────────
+const PORT  = 8080;
+const CACHE = new Map();
+const USER_MARKERS = new Map();
+
+function ptColor(r, u) {
+  if (u) return '#00D1FF';
+  if (r > 80) return '#FF3131';
+  if (r >= 40) return '#FFFF00';
+  return '#39FF14';
+}
+
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, c =>
+    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function setStatus(msg, color='#8aa') {
+  const sts = document.getElementById('submit_status');
+  if (!sts) return;
+  sts.style.color = color;
+  sts.textContent = msg;
+}
+
+async function fetchJson(url, ms=7000) {
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), ms);
+  try {
+    const r = await fetch(url, {signal: ctrl.signal});
+    if (!r.ok) throw new Error(r.status);
+    return await r.json();
+  } finally { clearTimeout(t); }
+}
+
+async function reverseGeocode(lat, lon) {
+  const key = lat.toFixed(6)+','+lon.toFixed(6);
+  if (CACHE.has(key)) return CACHE.get(key);
+  try {
+    const d = await fetchJson(
+      'https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer/reverseGeocode'+
+      '?f=pjson&location='+encodeURIComponent(lon+','+lat), 8000);
+    const v = d?.address?.ShortLabel || d?.address?.Address || d?.address?.Match_addr
+              || lat.toFixed(5)+', '+lon.toFixed(5);
+    CACHE.set(key, v);
+    return v;
+  } catch { return lat.toFixed(5)+', '+lon.toFixed(5); }
+}
+
+// ── load markers from external JSON ──────────────────────────────────────
+function renderMarkers(MARKERS) {
+  MARKERS.forEach(({"lat":lat,"lon":lon,"r":r,"u":u,"a":a,"id":id}) => {
+    const color    = ptColor(r, u);
+    const label    = u ? 'USER REPORT' : 'RISK: '+r+'%';
+    const addrHtml = a
+      ? esc(a)
+      : '<span class="lazy-addr" data-lat="'+lat+'" data-lon="'+lon+'">Loading…</span>';
+    if (u) {
+      addUserMarker(lat, lon, a, id);
+      return;
+    }
+    L.circleMarker([lat, lon], {
+      radius: u ? 4.8 : 4.2, fillColor: color, fillOpacity: 0.95,
+      color, weight: 1.2, opacity: 1,
+    }).addTo(map).bindPopup(
+      '<div style="text-align:center;font-family:monospace;">'+
+      '<b style="color:'+color+'">'+label+'</b><br>'+
+      '<div style="font-size:10px;color:#ccc;margin:8px 0 10px;">'+addrHtml+'</div>'+
+      '</div>', {maxWidth: 240}
+    );
+  });
+  document.getElementById('loading').style.display = 'none';
+}
+
+async function removeUserReport(userId, lat, lon, address) {
+  const params = new URLSearchParams();
+  if (userId !== null && userId !== undefined) params.set('id', String(userId));
+  params.set('lat', String(lat));
+  params.set('lon', String(lon));
+  if (address) params.set('address', address);
+  return fetchJson('http://127.0.0.1:'+PORT+'/remove?'+params.toString(), 9000);
+}
+
+function addUserMarker(lat, lon, address, userId=null) {
+  const markerKey = 'u_' +
+    (userId !== null && userId !== undefined ? String(userId) : 'tmp') + '_' +
+    lat.toFixed(6) + '_' + lon.toFixed(6) + '_' + Math.random().toString(36).slice(2, 8);
+  const safeAddress = address ? esc(address) : 'User-submitted point';
+  const marker = L.circleMarker([lat, lon], {
+    radius: 4.8, fillColor: '#00D1FF', fillOpacity: 0.95,
+    color: '#00D1FF', weight: 1.2, opacity: 1,
+  }).addTo(map).bindPopup(
+    '<div style="text-align:center;font-family:monospace;">'+
+    '<b style="color:#00D1FF">USER REPORT</b><br>'+
+    '<div style="font-size:10px;color:#ccc;margin:8px 0 10px;">'+safeAddress+'</div>'+
+    '<button type="button" class="delete-user-point-btn" '
+      + 'data-marker-key="'+markerKey+'" '
+      + 'data-user-id="'+(userId !== null && userId !== undefined ? String(userId) : '')+'" '
+      + 'data-lat="'+lat+'" '
+      + 'data-lon="'+lon+'" '
+      + 'data-address="'+safeAddress+'" '
+      + 'style="padding:4px 10px;font-size:10px;border:1px solid #ff7676;border-radius:4px;background:#2a1111;color:#ff9e9e;cursor:pointer;">Delete</button>'+
+    '</div>', {maxWidth: 240}
+  );
+  USER_MARKERS.set(markerKey, marker);
+  return marker;
+}
+
+fetch('./data/markers.json')
+  .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+  .then(renderMarkers)
+  .catch(err => {
+    console.error('Failed to load markers:', err);
+    document.getElementById('loading').textContent = 'Failed to load map data. Is the server running?';
+  });
+
+// lazy-load street address on popup open
+map.on('popupopen', async e => {
+  const el = e.popup.getElement()?.querySelector('.lazy-addr');
+  if (el && !el.dataset.loaded) {
+    el.dataset.loaded = '1';
+    el.textContent = await reverseGeocode(parseFloat(el.dataset.lat), parseFloat(el.dataset.lon));
+  }
+  const btn = e.popup.getElement()?.querySelector('.delete-user-point-btn');
+  if (btn && !btn.dataset.bound) {
+    btn.dataset.bound = '1';
+    btn.addEventListener('click', async ev => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      const markerKey = btn.dataset.markerKey || '';
+      const marker = USER_MARKERS.get(markerKey);
+      const userIdText = (btn.dataset.userId || '').trim();
+      const userId = userIdText === '' ? null : Number(userIdText);
+      const lat = Number(btn.dataset.lat);
+      const lon = Number(btn.dataset.lon);
+      const address = btn.dataset.address || '';
+      if (!confirm('Remove this user-submitted point?')) return;
+      try {
+        const d = await removeUserReport(Number.isFinite(userId) ? userId : null, lat, lon, address);
+        if (typeof d.total_reports === 'number') publishCount(d.total_reports);
+        if (marker) {
+          map.removeLayer(marker);
+          USER_MARKERS.delete(markerKey);
+        }
+        setStatus('User report removed.', '#39FF14');
+      } catch (err) {
+        console.error(err);
+        if (!Number.isFinite(userId)) {
+          const cur = parseInt(document.getElementById('report_count').textContent, 10);
+          if (!isNaN(cur) && cur > 0) publishCount(cur - 1);
+          if (marker) {
+            map.removeLayer(marker);
+            USER_MARKERS.delete(markerKey);
+          }
+          setStatus('Removed from this view only (server unavailable).', '#ffaa66');
+          return;
+        }
+        setStatus('Failed to remove point. Ensure --serve is running.', '#ff7676');
+      }
+    });
+  }
+});
+
+// ── high / low mode toggle ────────────────────────────────────────────────
+const HIGH_TOP         = [{"lat": 37.813751, "lon": -122.275576, "risk": 99, "address": "West Grand Avenue", "color": "#FF3131"}, {"lat": 37.816251, "lon": -122.275953, "risk": 99, "address": "Mead Avenue", "color": "#FF3131"}, {"lat": 37.821251, "lon": -122.286281, "risk": 98, "address": "28th Street", "color": "#FF3131"}, {"lat": 37.813756, "lon": -122.276328, "risk": 98, "address": "West Grand Avenue", "color": "#FF3131"}, {"lat": 37.813756, "lon": -122.272499, "risk": 97, "address": "Martin Luther King Junior Way", "color": "#FF3131"}, {"lat": 37.81625, "lon": -122.271773, "risk": 97, "address": "Martin Luther King Junior Way", "color": "#FF3131"}, {"lat": 37.821284, "lon": -122.286178, "risk": 97, "address": "Peralta Street", "color": "#FF3131"}, {"lat": 37.816256, "lon": -122.278378, "risk": 97, "address": "24th Street", "color": "#FF3131"}, {"lat": 37.818785, "lon": -122.273931, "risk": 97, "address": "West Street", "color": "#FF3131"}, {"lat": 37.821251, "lon": -122.274606, "risk": 96, "address": "31st Street", "color": "#FF3131"}];
+const LOW_TOP          = [{"lat": 37.711323, "lon": -122.223722, "risk": 10, "address": "Air Cargo Way", "color": "#39FF14"}, {"lat": 37.716703, "lon": -122.215469, "risk": 10, "address": "Sally Ride Way", "color": "#39FF14"}, {"lat": 37.734882, "lon": -122.222244, "risk": 10, "address": "Earhart Road", "color": "#39FF14"}, {"lat": 37.797485, "lon": -122.306461, "risk": 10, "address": "Middle Harbor Road", "color": "#39FF14"}, {"lat": 37.806723, "lon": -122.322272, "risk": 10, "address": "Maritime Street", "color": "#39FF14"}, {"lat": 37.807167, "lon": -122.330293, "risk": 10, "address": "7th Street", "color": "#39FF14"}, {"lat": 37.739846, "lon": -122.215623, "risk": 10, "address": "Doolittle Trail", "color": "#39FF14"}, {"lat": 37.781963, "lon": -122.251789, "risk": 10, "address": "Icarus Road", "color": "#39FF14"}, {"lat": 37.717924, "lon": -122.203709, "risk": 10, "address": "Doolittle Drive", "color": "#39FF14"}, {"lat": 37.721422, "lon": -122.216913, "risk": 10, "address": "Sally Ride Way", "color": "#39FF14"}];
+const HIGH_LEADERBOARD = "<div style=\"font-size:10px;margin-bottom:8px;border-bottom:1px solid #222;padding-bottom:4px;\"><b style=\"color:#FF3131;\">99%</b> West Grand Avenue</div><div style=\"font-size:10px;margin-bottom:8px;border-bottom:1px solid #222;padding-bottom:4px;\"><b style=\"color:#FF3131;\">99%</b> Mead Avenue</div><div style=\"font-size:10px;margin-bottom:8px;border-bottom:1px solid #222;padding-bottom:4px;\"><b style=\"color:#FF3131;\">98%</b> 28th Street</div><div style=\"font-size:10px;margin-bottom:8px;border-bottom:1px solid #222;padding-bottom:4px;\"><b style=\"color:#FF3131;\">98%</b> West Grand Avenue</div><div style=\"font-size:10px;margin-bottom:8px;border-bottom:1px solid #222;padding-bottom:4px;\"><b style=\"color:#FF3131;\">97%</b> Martin Luther King Junior Way</div><div style=\"font-size:10px;margin-bottom:8px;border-bottom:1px solid #222;padding-bottom:4px;\"><b style=\"color:#FF3131;\">97%</b> Martin Luther King Junior Way</div><div style=\"font-size:10px;margin-bottom:8px;border-bottom:1px solid #222;padding-bottom:4px;\"><b style=\"color:#FF3131;\">97%</b> Peralta Street</div><div style=\"font-size:10px;margin-bottom:8px;border-bottom:1px solid #222;padding-bottom:4px;\"><b style=\"color:#FF3131;\">97%</b> 24th Street</div><div style=\"font-size:10px;margin-bottom:8px;border-bottom:1px solid #222;padding-bottom:4px;\"><b style=\"color:#FF3131;\">97%</b> West Street</div><div style=\"font-size:10px;margin-bottom:8px;border-bottom:1px solid #222;padding-bottom:4px;\"><b style=\"color:#FF3131;\">96%</b> 31st Street</div>";
+const LOW_LEADERBOARD  = "<div style=\"font-size:10px;margin-bottom:8px;border-bottom:1px solid #222;padding-bottom:4px;\"><b style=\"color:#39FF14;\">10%</b> Air Cargo Way</div><div style=\"font-size:10px;margin-bottom:8px;border-bottom:1px solid #222;padding-bottom:4px;\"><b style=\"color:#39FF14;\">10%</b> Sally Ride Way</div><div style=\"font-size:10px;margin-bottom:8px;border-bottom:1px solid #222;padding-bottom:4px;\"><b style=\"color:#39FF14;\">10%</b> Earhart Road</div><div style=\"font-size:10px;margin-bottom:8px;border-bottom:1px solid #222;padding-bottom:4px;\"><b style=\"color:#39FF14;\">10%</b> Middle Harbor Road</div><div style=\"font-size:10px;margin-bottom:8px;border-bottom:1px solid #222;padding-bottom:4px;\"><b style=\"color:#39FF14;\">10%</b> Maritime Street</div><div style=\"font-size:10px;margin-bottom:8px;border-bottom:1px solid #222;padding-bottom:4px;\"><b style=\"color:#39FF14;\">10%</b> 7th Street</div><div style=\"font-size:10px;margin-bottom:8px;border-bottom:1px solid #222;padding-bottom:4px;\"><b style=\"color:#39FF14;\">10%</b> Doolittle Trail</div><div style=\"font-size:10px;margin-bottom:8px;border-bottom:1px solid #222;padding-bottom:4px;\"><b style=\"color:#39FF14;\">10%</b> Icarus Road</div><div style=\"font-size:10px;margin-bottom:8px;border-bottom:1px solid #222;padding-bottom:4px;\"><b style=\"color:#39FF14;\">10%</b> Doolittle Drive</div><div style=\"font-size:10px;margin-bottom:8px;border-bottom:1px solid #222;padding-bottom:4px;\"><b style=\"color:#39FF14;\">10%</b> Sally Ride Way</div>";
+
+const modePanel    = document.getElementById('mode_panel');
+const modeTitle    = document.getElementById('mode_title');
+const modeList     = document.getElementById('mode_list');
+const modeToggle   = document.getElementById('mode_toggle');
+const legendDrawer = document.getElementById('legend_drawer');
+const legendToggle = document.getElementById('legend_toggle');
+const legendPanel  = document.getElementById('legend_panel');
+const topLayer     = L.layerGroup().addTo(map);
+let   currentMode  = 'high';
+
+legendToggle.addEventListener('click', () => {
+  const isOpen = legendDrawer.classList.toggle('open');
+  legendToggle.textContent = isOpen ? 'HIDE DANGER LEGEND' : 'SHOW DANGER LEGEND';
+  legendToggle.setAttribute('aria-expanded', String(isOpen));
+  legendPanel.setAttribute('aria-hidden', String(!isOpen));
+});
+
+function renderTopPopups(items) {
+  topLayer.clearLayers();
+  items.forEach(p => {
+    L.popup({autoClose:false, closeOnClick:false})
+      .setLatLng([p.lat, p.lon])
+      .setContent(
+        '<div style="text-align:center;font-family:monospace;">'+
+        '<b style="color:'+p.color+'">RISK: '+p.risk+'%</b><br>'+
+        '<div style="font-size:10px;color:#ccc;margin-top:6px;">'+p.address+'</div>'+
+        '</div>')
+      .addTo(topLayer);
+  });
+}
+
+function renderMode(mode) {
+  const isLow = mode === 'low';
+  modePanel.style.borderTopColor = isLow ? '#39FF14' : '#FF3131';
+  modeTitle.style.color          = isLow ? '#39FF14' : '#FF3131';
+  modeTitle.textContent          = isLow ? 'TOP 10 LEAST LIKELY LOCATIONS' : 'TOP 10 RISK LOCATIONS';
+  modeList.innerHTML             = isLow ? LOW_LEADERBOARD : HIGH_LEADERBOARD;
+  modeToggle.textContent         = isLow ? 'OPEN HIGH-RISK VIEW' : 'OPEN LEAST-LIKELY VIEW';
+  renderTopPopups(isLow ? LOW_TOP : HIGH_TOP);
+  currentMode = mode;
+}
+
+modeToggle.addEventListener('click', e => {
+  e.preventDefault();
+  renderMode(currentMode === 'low' ? 'high' : 'low');
+});
+renderMode('high');
+
+// ── report count sync ─────────────────────────────────────────────────────
+const COUNT_KEY = 'illegal_dumping_report_count_v1';
+const BC = typeof BroadcastChannel !== 'undefined'
+  ? new BroadcastChannel('illegal_dumping_report_count_channel_v1') : null;
+
+function setCount(v) {
+  const el = document.getElementById('report_count');
+  if (el && Number.isFinite(v)) el.textContent = String(v);
+}
+function publishCount(v) {
+  setCount(v);
+  try { localStorage.setItem(COUNT_KEY, String(v)); } catch(_) {}
+  try { BC?.postMessage({type:'report_count',value:v}); } catch(_) {}
+}
+function syncCount() {
+  try {
+    const s = localStorage.getItem(COUNT_KEY);
+    if (s !== null) setCount(parseInt(s, 10));
+  } catch(_) {}
+  window.addEventListener('storage', e => {
+    if (e.key === COUNT_KEY && e.newValue) setCount(parseInt(e.newValue, 10));
+  });
+  if (BC) BC.onmessage = e => { if (typeof e?.data?.value === 'number') setCount(e.data.value); };
+}
+async function pollCount() {
+  try {
+    const d = await fetchJson('http://127.0.0.1:'+PORT+'/count', 4000);
+    if (typeof d.total_reports === 'number') publishCount(d.total_reports);
+  } catch(_) {}
+}
+
+// ── live clock ────────────────────────────────────────────────────────────
+function tick() {
+  const el = document.getElementById('live_time');
+  if (el) el.textContent = new Date().toLocaleTimeString('en-US', {hour12: false});
+}
+
+// ── geocode for new report ────────────────────────────────────────────────
+async function geocodeAddress(text) {
+  const q   = /oakland/i.test(text) ? text : text + ', Oakland, CA';
+  const enc = encodeURIComponent(q);
+  try {
+    const d = await fetchJson('http://127.0.0.1:'+PORT+'/geocode?text='+enc, 7000);
+    if (typeof d.lat === 'number') return d;
+  } catch(_) {}
+  try {
+    const d = await fetchJson(
+      'https://geocode.arcgis.com/arcgis/rest/services/World/GeocodeServer/findAddressCandidates'+
+      '?f=pjson&maxLocations=1&searchExtent='+encodeURIComponent('-122.55,37.68,-122.05,37.92')+'&SingleLine='+enc, 9000);
+    const loc = d?.candidates?.[0]?.location;
+    if (loc) return {lat: loc.y, lon: loc.x};
+  } catch(_) {}
+  const d = await fetchJson(
+    'https://api.geoapify.com/v1/geocode/search?text='+enc+'&bias=proximity:-122.2712,37.8044&apiKey=c25d0e24a0764c8ca0f9240667be3420', 9000);
+  const f = d?.features?.[0];
+  if (!f) throw new Error('No geocode match');
+  return {lat: f.geometry.coordinates[1], lon: f.geometry.coordinates[0]};
+}
+
+// ── submit report ─────────────────────────────────────────────────────────
+async function submitPlace() {
+  const inp  = document.getElementById('place_in');
+  const btn  = document.getElementById('gen_btn');
+  const sts  = document.getElementById('submit_status');
+  const text = inp.value.trim();
+  if (!text) return;
+  sts.textContent = '';
+  btn.disabled = true;
+  btn.textContent = 'CALCULATING…';
+  try {
+    const {lat, lon} = await geocodeAddress(text);
+    let nextCount = null, savedToServer = false, userReportId = null;
+    try {
+      const d = await fetchJson(
+        'http://127.0.0.1:'+PORT+'/add?lat='+lat+'&lon='+lon+'&address='+encodeURIComponent(text), 9000);
+      savedToServer = true;
+      if (typeof d.total_reports === 'number') nextCount = d.total_reports;
+      if (typeof d.user_report_id === 'number') userReportId = d.user_report_id;
+    } catch(_) {
+      sts.textContent = 'Saved locally in this view. Start --serve to persist.';
+    }
+    if (nextCount === null) {
+      const cur = parseInt(document.getElementById('report_count').textContent, 10);
+      if (!isNaN(cur)) nextCount = cur + 1;
+    }
+    if (nextCount !== null) publishCount(nextCount);
+    addUserMarker(lat, lon, text, userReportId);
+    inp.value = '';
+    btn.textContent = savedToServer ? 'SENT' : 'SENT (LOCAL)';
+  } catch(err) {
+    console.error(err);
+    sts.textContent = 'Address not found. Try full street + Oakland, CA.';
+    btn.textContent = 'TRY AGAIN';
+  } finally {
+    setTimeout(() => { btn.disabled = false; btn.textContent = 'Enter'; }, 1400);
+  }
+}
+
+// ── boot ──────────────────────────────────────────────────────────────────
+syncCount();
+tick(); setInterval(tick, 1000);
+pollCount(); setInterval(pollCount, 2500);
+</script>
+</body>
+</html>

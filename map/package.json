@@ -1,0 +1,13 @@
+{
+  "name": "live-map-real-time-update-center",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Local dev scripts for serving the generated Oakland illegal-dumping map outputs.",
+  "scripts": {
+    "dev": "python3 -m http.server --bind 127.0.0.1 --directory public 8000",
+    "build": "./.venv/bin/python src/build_city_map.py && ./.venv/bin/python src/build_live_dashboard.py",
+    "build:map": "./.venv/bin/python src/build_city_map.py",
+    "build:dashboard": "./.venv/bin/python src/build_live_dashboard.py",
+    "serve:live": "./.venv/bin/python src/build_live_dashboard.py --serve"
+  }
+}
