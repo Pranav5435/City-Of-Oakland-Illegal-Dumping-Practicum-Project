@@ -469,5 +469,13 @@ def detect_video_status(job_id):
     return jsonify(video_jobs[job_id])
 
 
+# if __name__ == '__main__':
+#     debug_mode = os.getenv('FLASK_DEBUG', '1') == '1'
+#     use_reloader = os.getenv('FLASK_USE_RELOADER', '1') == '1'
+#     if os.getenv('RUN_ALL_DISABLE_RELOADER') == '1':
+#         use_reloader = False
+#     app.run(debug=debug_mode, use_reloader=use_reloader, port=8000)
+
 if __name__ == '__main__':
-    app.run(debug=True, port=8000)
+    debug_mode = os.getenv('FLASK_DEBUG', '1') == '1'
+    app.run(host="127.0.0.1", port=8000, debug=debug_mode, use_reloader=False)

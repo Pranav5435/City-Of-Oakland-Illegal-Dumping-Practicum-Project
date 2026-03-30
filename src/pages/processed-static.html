@@ -133,6 +133,16 @@
 
 <script>
     const BACKEND_URL = 'http://127.0.0.1:8000/api/detect';
+    const BACKEND_HEALTH_URL = 'http://127.0.0.1:8000/api/health';
+
+    async function isBackendHealthy() {
+        try {
+            const res = await fetch(BACKEND_HEALTH_URL, { cache: 'no-store' });
+            return res.ok;
+        } catch {
+            return false;
+        }
+    }
 
     async function runDetectionAndRender() {
         const raw = sessionStorage.getItem('lastSessionManifest');
@@ -147,6 +157,15 @@
         const indicator = document.getElementById('processingIndicator');
         indicator.style.display = 'block';
 
+        const backendHealthy = await isBackendHealthy();
+        if (!backendHealthy) {
+            indicator.style.display = 'none';
+            const emptyState = document.getElementById('emptyState');
+            emptyState.innerHTML = '<p>Backend API is offline. Start <b>python run_all.py</b> (or <b>python backend/server.py</b>) and refresh this page.</p>';
+            emptyState.style.display = 'block';
+            return;
+        }
+
         for (const { name, dataUrl } of originalImages) {
             const blob = await fetch(dataUrl).then(r => r.blob());
             const formData = new FormData();
@@ -154,6 +173,7 @@
             formData.append('min_confidence', '0.5');
 
             let annotatedSrc = null, count = 0, avgConf = 0;
+            let failMessage = 'Detection failed';
 
             try {
                 const res = await fetch(BACKEND_URL, { method: 'POST', body: formData });
@@ -162,9 +182,12 @@
                     annotatedSrc = `data:image/jpeg;base64,${data.annotated_image}`;
                     count = data.count;
                     avgConf = data.average_confidence;
+                } else {
+                    failMessage = `Detection failed (HTTP ${res.status})`;
                 }
             } catch (err) {
                 console.error(`Detection failed for ${name}:`, err);
+                failMessage = 'Detection failed (backend unavailable)';
             }
 
             const row = document.createElement('div');
@@ -179,7 +202,7 @@
                     <figure>
                         ${annotatedSrc
                             ? `<img src="${annotatedSrc}" alt="Annotated">`
-                            : `<div class="detection-failed">Detection failed</div>`
+                            : `<div class="detection-failed">${failMessage}</div>`
                         }
                         <figcaption>Annotated</figcaption>
                     </figure>
