@@ -1,0 +1,13 @@
+flask
+flask-cors
+python-dotenv
+inference-sdk
+requests
+urllib3
+opencv-python
+numpy
+torch
+ultralytics
+boxmot
+pandas
+shapely>=2.0

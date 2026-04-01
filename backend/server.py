@@ -16,6 +16,8 @@ import torch
 from ultralytics import YOLO
 from boxmot import StrongSort
 
+from similarity import area_comprehensive_similarity
+
 load_dotenv()
 
 app = Flask(__name__)
@@ -32,6 +34,12 @@ video_jobs = {}
 
 OUTPUT_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'output')
 os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+DISAPPEAR_SECONDS       = float(os.getenv('DISAPPEAR_SECONDS',        '7'))
+FAST_FG_RATIO_THRESHOLD = float(os.getenv('FAST_FG_RATIO_THRESHOLD',  '0.65'))
+SLOW_FG_RATIO_THRESHOLD = float(os.getenv('SLOW_FG_RATIO_THRESHOLD',  '0.85'))
+EVENT_MIN_AREA_RATIO    = float(os.getenv('EVENT_MIN_AREA_RATIO',      '0.10'))
+SIMILARITY_THRESHOLD    = float(os.getenv('SIMILARITY_THRESHOLD',      '0.35'))
 
 
 # ========================================
@@ -80,8 +88,8 @@ def run_video_detection(job_id: str, video_path: str, skip_frames: int = 9):
         print(f"[job {job_id}] Starting...")
 
         # ---- Models ----
-        device = 'cuda' if torch.cuda.is_available() else 'cpu'
-        model  = YOLO('yolov8n.pt').to(device)
+        device  = 'cuda' if torch.cuda.is_available() else 'cpu'
+        model   = YOLO('yolov8n.pt').to(device)
         tracker = StrongSort(
             reid_weights=Path(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'osnet_x0_25_msmt17.pt')),
             device='0' if torch.cuda.is_available() else 'cpu',
@@ -100,30 +108,32 @@ def run_video_detection(job_id: str, video_path: str, skip_frames: int = 9):
         orig_h       = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
         print(f"[job {job_id}] Video: {orig_w}x{orig_h} @ {fps:.1f}fps, {total_frames} frames")
 
-        # Scale to 480 wide, cap height for portrait videos
-        TARGET_W = 480
-        TARGET_H = int(orig_h * TARGET_W / orig_w)
-        TARGET_H = min(TARGET_H, 854)
-        TARGET_H = TARGET_H if TARGET_H % 2 == 0 else TARGET_H + 1
-        w, h = TARGET_W, TARGET_H
+        w = orig_w if orig_w % 2 == 0 else orig_w - 1
+        h = orig_h if orig_h % 2 == 0 else orig_h - 1
         out_fps = fps / skip_frames
         print(f"[job {job_id}] Processing at {w}x{h}, output {out_fps:.1f}fps")
+        print(
+            f"[job {job_id}] Detection thresholds: "
+            f"disappear>={DISAPPEAR_SECONDS:.1f}s, "
+            f"fast_fg_ratio>{FAST_FG_RATIO_THRESHOLD:.2f}, "
+            f"slow_fg_ratio>{SLOW_FG_RATIO_THRESHOLD:.2f}, "
+            f"similarity>={SIMILARITY_THRESHOLD:.2f}, "
+            f"min_area_ratio={EVENT_MIN_AREA_RATIO:.2f}"
+        )
 
-        # ---- ffmpeg setup (BEFORE the main loop) ----
-        # Output is a single frame the same size as the input (w x h)
-        # The quad view is scaled down to fit in that same footprint
+        # ---- ffmpeg setup ----
         output_video_path = os.path.join(OUTPUT_DIR, f'{job_id}.mp4')
         ffmpeg_cmd = [
             'ffmpeg', '-y',
             '-f', 'rawvideo',
             '-vcodec', 'rawvideo',
-            '-s', f'{w}x{h}',   # same size as original
+            '-s', f'{w}x{h}',
             '-pix_fmt', 'bgr24',
             '-r', str(out_fps),
             '-i', '-',
             '-c:v', 'libx264',
-            '-preset', 'ultrafast',
-            '-crf', '28',
+            '-preset', 'medium',
+            '-crf', '17',
             '-pix_fmt', 'yuv420p',
             output_video_path
         ]
@@ -135,7 +145,6 @@ def run_video_detection(job_id: str, video_path: str, skip_frames: int = 9):
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL
             )
-            # Give ffmpeg half a second to start, then check it didn't crash
             time.sleep(0.5)
             if ffmpeg_proc.poll() is not None:
                 raise RuntimeError(f'ffmpeg crashed on startup (exit code {ffmpeg_proc.returncode})')
@@ -169,20 +178,45 @@ def run_video_detection(job_id: str, video_path: str, skip_frames: int = 9):
                     cv2.drawContours(result, [c], -1, 255, -1)
             return result
 
+        # ---- Background subtractor pre-warm ----
+        # Feed the first 100 frames to the subtractors before the main loop
+        # so they have a stable background model from the start.
+        print(f"[job {job_id}] Pre-warming background subtractors...")
+        prewarm_frames = 100
+        for _ in range(prewarm_frames):
+            ret, pw_frame = cap.read()
+            if not ret:
+                break
+            pw_frame = cv2.resize(pw_frame, (w, h), interpolation=cv2.INTER_LINEAR)
+            cnt_fast.apply(pw_frame, learningRate=0.1)
+            cnt_slow.apply(pw_frame)
+        print(f"[job {job_id}] Pre-warm done ({prewarm_frames} frames consumed).")
+        # frame_idx starts after the pre-warmed frames
+        frame_idx = prewarm_frames
+
         # ---- Tracking state ----
-        people_paths     = {}
-        people_tips      = {}
-        people_init_box  = {}
-        people_last_seen = {}
-        people_first_seen= {}
-        disappeared      = set()
-        historical_frames= {}
-        detection_events = []
-        frames_processed = 0
-        total_to_process = max(1, total_frames // skip_frames)
-        frame_idx        = 0
+        people_paths      = {}
+        people_tips       = {}
+        people_init_box   = {}
+        people_last_box   = {}
+        people_last_seen  = {}
+        people_first_seen = {}
+        disappeared       = set()
+        historical_frames = {}
+        detection_events  = []
+        frames_processed  = 0
+        total_to_process  = max(1, (total_frames - prewarm_frames) // skip_frames)
 
         print(f"[job {job_id}] Entering main loop ({total_to_process} frames to process)...")
+
+        # Seed historical_frames with a clean frame right at loop start,
+        # so people who appear early always have a reference available.
+        ret, seed_frame = cap.read()
+        if ret:
+            seed_frame = cv2.resize(seed_frame, (w, h), interpolation=cv2.INTER_LINEAR)
+            historical_frames[frame_idx] = seed_frame.copy()
+            # rewind one frame so the main loop re-reads it normally
+            cap.set(cv2.CAP_PROP_POS_FRAMES, cap.get(cv2.CAP_PROP_POS_FRAMES) - 1)
 
         # ---- Main loop ----
         while True:
@@ -196,7 +230,8 @@ def run_video_detection(job_id: str, video_path: str, skip_frames: int = 9):
 
             frame = cv2.resize(frame, (w, h), interpolation=cv2.INTER_LINEAR)
 
-            if frame_idx % (50 * skip_frames) == 0:
+            # Store a reference frame every ~1s (3 * skip_frames) for later ROI comparison
+            if frame_idx % (3 * skip_frames) == 0:
                 historical_frames[frame_idx] = frame.copy()
             while len(historical_frames) > 100:
                 del historical_frames[min(historical_frames)]
@@ -205,11 +240,21 @@ def run_video_detection(job_id: str, video_path: str, skip_frames: int = 9):
             fg_slow = clean_fg(cnt_slow.apply(frame))
 
             if frame_idx > 250:
-                total_px = w * h
-                if cv2.countNonZero(fg_fast) / total_px > 0.65:
+                total_px   = w * h
+                fast_ratio = cv2.countNonZero(fg_fast) / total_px
+                slow_ratio = cv2.countNonZero(fg_slow) / total_px
+                if fast_ratio > FAST_FG_RATIO_THRESHOLD:
+                    print(
+                        f"[job {job_id}] Skipping frame {frame_idx}: "
+                        f"fast_fg_ratio={fast_ratio:.3f} > {FAST_FG_RATIO_THRESHOLD:.3f}"
+                    )
                     frame_idx += skip_frames
                     continue
-                if cv2.countNonZero(fg_slow) / total_px > 0.85:
+                if slow_ratio > SLOW_FG_RATIO_THRESHOLD:
+                    print(
+                        f"[job {job_id}] Skipping frame {frame_idx}: "
+                        f"slow_fg_ratio={slow_ratio:.3f} > {SLOW_FG_RATIO_THRESHOLD:.3f}"
+                    )
                     frame_idx += skip_frames
                     continue
 
@@ -238,60 +283,102 @@ def run_video_detection(job_id: str, video_path: str, skip_frames: int = 9):
                 if pid in disappeared:
                     continue
                 people_last_seen[pid] = frame_idx
+                people_last_box[pid]  = p['box']
                 if pid not in people_paths:
-                    people_init_box[pid]  = p['box']
-                    people_first_seen[pid]= frame_idx
+                    people_init_box[pid]   = p['box']
+                    people_first_seen[pid] = frame_idx
                     init_fg = np.zeros((h, w), dtype=np.uint8)
                     x1, y1, x2, y2 = p['box']
                     cv2.rectangle(init_fg, (x1, y1), (x2, y2), 255, -1)
                     people_paths[pid] = init_fg
                     people_tips[pid]  = init_fg.copy()
 
-            # Check for disappeared people
+            # ---- Check for disappeared people ----
             ids_to_check = [
                 pid for pid, last in people_last_seen.items()
-                if pid not in disappeared and (frame_idx - last) / fps >= 7
+                if pid not in disappeared and (frame_idx - last) / fps >= DISAPPEAR_SECONDS
             ]
 
             for pid in ids_to_check:
-                path_mask = people_paths[pid]
-                init_box  = people_init_box[pid]
-                region    = cv2.subtract(path_mask.copy(), fg_fast)
-                leftover  = cv2.bitwise_and(region, fg_slow)
-                box_area  = (init_box[2] - init_box[0]) * (init_box[3] - init_box[1])
-                min_area  = box_area * 0.15
-                contours, _ = cv2.findContours(leftover, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-                significant = [c for c in contours if cv2.contourArea(c) >= min_area]
+                init_box        = people_init_box[pid]
+                last_box        = people_last_box[pid]
+                first_seen_idx  = people_first_seen[pid]
+                elapsed_missing = (frame_idx - people_last_seen[pid]) / fps
 
-                if significant:
+                # Find the historical frame closest to just before this person appeared
+                ref_candidates = {k: v for k, v in historical_frames.items() if k < first_seen_idx}
+                ref_frame = ref_candidates[max(ref_candidates)] if ref_candidates else None
+
+                if ref_frame is None:
+                    print(f"[job {job_id}] pid={pid}: no reference frame available, skipping")
+                    disappeared.add(pid)
+                    for d in [people_paths, people_tips, people_last_seen,
+                              people_init_box, people_last_box, people_first_seen]:
+                        d.pop(pid, None)
+                    continue
+
+                # Build padded ROI around the person's LAST known position (where they dropped)
+                x1, y1, x2, y2 = last_box
+                pad = 20
+                rx1 = max(0, x1 - pad)
+                ry1 = max(0, y1 - pad)
+                rx2 = min(w, x2 + pad)
+                ry2 = min(h, y2 + pad)
+
+                roi_now = frame[ry1:ry2, rx1:rx2]
+                roi_ref = ref_frame[ry1:ry2, rx1:rx2]
+
+                if roi_now.size == 0 or roi_ref.size == 0:
+                    print(f"[job {job_id}] pid={pid}: empty ROI, skipping")
+                    disappeared.add(pid)
+                    for d in [people_paths, people_tips, people_last_seen,
+                              people_init_box, people_first_seen]:
+                        d.pop(pid, None)
+                    continue
+
+                mask_now = np.ones((roi_now.shape[0], roi_now.shape[1]), dtype=np.uint8) * 255
+                mask_ref = np.ones((roi_ref.shape[0], roi_ref.shape[1]), dtype=np.uint8) * 255
+
+                score, ct_score, e_score, _, ct_details, e_details, duration_ms = \
+                    area_comprehensive_similarity(roi_ref, mask_ref, roi_now, mask_now)
+
+                is_dump = score >= SIMILARITY_THRESHOLD
+
+                print(
+                    f"[job {job_id}] Candidate pid={pid}: "
+                    f"missing={elapsed_missing:.2f}s({elapsed_missing >= DISAPPEAR_SECONDS}), "
+                    f"similarity_score={score:.3f}(thresh={SIMILARITY_THRESHOLD}), "
+                    f"ct={ct_score:.3f}, edge={e_score:.3f}, "
+                    f"dump_detected={is_dump} ({duration_ms:.1f}ms)"
+                )
+
+                if is_dump:
                     timestamp_sec = round(frame_idx / fps, 2)
-                    regions = []
-                    for c in significant:
-                        x, y, bw, bh = cv2.boundingRect(c)
-                        regions.append({'x': x, 'y': y, 'w': bw, 'h': bh,
-                                        'area': int(cv2.contourArea(c))})
+                    regions = [{'x': int(rx1), 'y': int(ry1), 'w': int(rx2 - rx1), 'h': int(ry2 - ry1),
+                                'area': int((rx2 - rx1) * (ry2 - ry1))}]
                     _, buf = cv2.imencode('.jpg', frame)
                     frame_b64 = base64.b64encode(buf).decode('utf-8')
                     detection_events.append({
-                        'person_id':     int(pid),
-                        'frame':         int(frame_idx),
-                        'timestamp_sec': timestamp_sec,
-                        'regions':       regions,
-                        'snapshot':      frame_b64
+                        'person_id':        int(pid),
+                        'frame':            int(frame_idx),
+                        'timestamp_sec':    timestamp_sec,
+                        'regions':          regions,
+                        'snapshot':         frame_b64,
+                        'similarity_score': round(float(score), 4),
                     })
-                    print(f"[job {job_id}] DETECTION at {timestamp_sec}s, pid={pid}")
+                    print(f"[job {job_id}] DETECTION at {timestamp_sec}s, pid={pid}, score={score:.3f}")
+                else:
+                    print(f"[job {job_id}] No event for pid={pid}: score={score:.3f} < {SIMILARITY_THRESHOLD}")
 
                 disappeared.add(pid)
                 for d in [people_paths, people_tips, people_last_seen,
-                          people_init_box, people_first_seen]:
+                          people_init_box, people_last_box, people_first_seen]:
                     d.pop(pid, None)
 
             # ---- Build quad view scaled to w x h ----
-            # Each of the 4 panels is w//2 x h//2
             pw, ph = w // 2, h // 2
 
             def make_panel(img):
-                """Resize any frame to panel size."""
                 return cv2.resize(img, (pw, ph), interpolation=cv2.INTER_LINEAR)
 
             # Panel 1 (top-left): YOLO tracking
@@ -344,12 +431,11 @@ def run_video_detection(job_id: str, video_path: str, skip_frames: int = 9):
                 cv2.putText(panel, ts, (6, panel.shape[0] - 6),
                             cv2.FONT_HERSHEY_SIMPLEX, 0.4, (180, 180, 180), 1)
 
-            # Assemble quad grid scaled to w x h
+            # Assemble quad grid
             top_row    = cv2.hconcat([make_panel(p1), make_panel(p2)])
             bottom_row = cv2.hconcat([make_panel(p3), make_panel(p4)])
             quad       = cv2.vconcat([top_row, bottom_row])
 
-            # Write to ffmpeg
             ffmpeg_proc.stdin.write(quad.tobytes())
 
             frames_processed += 1
@@ -371,6 +457,10 @@ def run_video_detection(job_id: str, video_path: str, skip_frames: int = 9):
             'events':                 detection_events,
             'output_video_job_id':    job_id
         }
+        print(
+            f"[job {job_id}] Summary: frames_processed={frames_processed}, "
+            f"events={len(detection_events)}, output={output_video_path}"
+        )
 
     except Exception as e:
         import traceback
@@ -468,13 +558,6 @@ def detect_video_status(job_id):
         return jsonify({'error': 'Job not found'}), 404
     return jsonify(video_jobs[job_id])
 
-
-# if __name__ == '__main__':
-#     debug_mode = os.getenv('FLASK_DEBUG', '1') == '1'
-#     use_reloader = os.getenv('FLASK_USE_RELOADER', '1') == '1'
-#     if os.getenv('RUN_ALL_DISABLE_RELOADER') == '1':
-#         use_reloader = False
-#     app.run(debug=debug_mode, use_reloader=use_reloader, port=8000)
 
 if __name__ == '__main__':
     debug_mode = os.getenv('FLASK_DEBUG', '1') == '1'

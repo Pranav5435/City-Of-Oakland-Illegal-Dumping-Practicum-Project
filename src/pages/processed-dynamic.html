@@ -168,6 +168,12 @@
             margin-top: 6px;
         }
 
+        .progress-eta {
+            font-size: 0.75rem;
+            color: #8aa;
+            margin-top: 2px;
+        }
+
         .processing-indicator {
             text-align: center;
             color: #aaa;
@@ -287,6 +293,22 @@
         return `${m}:${s}`;
     }
 
+    function formatEta(seconds) {
+        if (!isFinite(seconds) || seconds < 0) {
+            return 'ETA: --';
+        }
+
+        const rounded = Math.max(0, Math.round(seconds));
+        const minutes = Math.floor(rounded / 60);
+        const remainingSeconds = rounded % 60;
+
+        if (minutes > 0) {
+            return 'ETA: ' + minutes + 'm ' + String(remainingSeconds).padStart(2, '0') + 's';
+        }
+
+        return 'ETA: ' + rounded + 's';
+    }
+
     function buildEventsTable(events) {
         if (!events || events.length === 0) {
             return `<div class="video-placeholder" style="min-height:60px">No dumping events detected</div>`;
@@ -318,19 +340,41 @@
             </table>`;
     }
 
-    function pollUntilDone(jobId, progressBarFill, progressLabel) {
+    function pollUntilDone(jobId, progressBarFill, progressLabel, progressEta) {
+        const startedAt = Date.now();
+
+        function updateProgressEstimate(progress) {
+            if (!isFinite(progress) || progress <= 0) {
+                progressEta.textContent = 'ETA: calculating…';
+                return;
+            }
+
+            if (progress >= 100) {
+                progressEta.textContent = 'ETA: 0s';
+                return;
+            }
+
+            const elapsedSeconds = (Date.now() - startedAt) / 1000;
+            const estimatedTotalSeconds = elapsedSeconds / (progress / 100);
+            progressEta.textContent = formatEta(estimatedTotalSeconds - elapsedSeconds);
+        }
+
         return new Promise((resolve, reject) => {
             const interval = setInterval(function() {
                 fetch(BACKEND_URL + '/' + jobId)
                     .then(r => r.json())
                     .then(data => {
-                        progressBarFill.style.width = data.progress + '%';
-                        progressLabel.textContent   = 'Processing… ' + data.progress + '%';
+                        const progress = Number(data.progress) || 0;
+                        progressBarFill.style.width = progress + '%';
+                        progressLabel.textContent   = 'Processing… ' + progress + '%';
+                        updateProgressEstimate(progress);
                         if (data.status === 'complete') {
                             clearInterval(interval);
+                            progressEta.textContent = 'ETA: done';
                             resolve(data.result);
                         } else if (data.status === 'error') {
                             clearInterval(interval);
+                            progressEta.textContent = 'ETA: --';
                             reject(new Error(data.error || 'Unknown error'));
                         }
                     })
@@ -400,6 +444,7 @@
                     '<div class="progress-bar-fill" id="progressFill-' + escapedName + '"></div>' +
                 '</div>' +
                 '<div class="progress-label" id="progressLabel-' + escapedName + '">Uploading…</div>' +
+                '<div class="progress-eta" id="progressEta-' + escapedName + '">ETA: calculating…</div>' +
             '</div>' +
             '<div class="meta-bar" id="metaBar-' + escapedName + '" style="display:none">' +
                 '<div class="meta-stat"><div class="value" id="statFrames-' + escapedName + '">—</div><div class="label">Frames Processed</div></div>' +
@@ -411,6 +456,7 @@
 
         var progressFill  = document.getElementById('progressFill-'  + escapedName);
         var progressLabel = document.getElementById('progressLabel-' + escapedName);
+        var progressEta   = document.getElementById('progressEta-'   + escapedName);
         var outputPane    = document.getElementById('outputPane-'    + escapedName);
 
         var formData = new FormData();
@@ -424,7 +470,8 @@
             })
             .then(function(data) {
                 progressLabel.textContent = 'Analyzing video…';
-                return pollUntilDone(data.job_id, progressFill, progressLabel);
+                progressEta.textContent = 'ETA: calculating…';
+                return pollUntilDone(data.job_id, progressFill, progressLabel, progressEta);
             })
             .then(function(result) {
                 document.getElementById('progressWrap-' + escapedName).style.display = 'none';
