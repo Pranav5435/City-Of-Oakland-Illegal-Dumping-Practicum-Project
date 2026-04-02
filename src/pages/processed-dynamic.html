@@ -6,12 +6,7 @@
     <title>Processed Dynamic Media</title>
     <link rel="stylesheet" href="../styles/styles.css">
     <style>
-        .results-grid {
-            display: flex;
-            flex-direction: column;
-            gap: 24px;
-            margin-top: 24px;
-        }
+        .results-grid { display:flex; flex-direction:column; gap:24px; margin-top:24px; }
 
         .result-row {
             background: var(--card-bg, #16213e);
@@ -19,486 +14,430 @@
             border-radius: 12px;
             padding: 20px;
         }
+        .result-row h3 { font-size:0.95rem; color:#aaa; margin-bottom:14px; word-break:break-all; }
 
-        .result-row h3 {
-            font-size: 0.95rem;
-            color: #aaa;
-            margin-bottom: 14px;
-            word-break: break-all;
-        }
-
-        .video-pair {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 16px;
-            margin-bottom: 16px;
-        }
-
-        .video-pair figure {
-            margin: 0;
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-        }
-
-        .video-pair figcaption {
-            font-size: 0.8rem;
-            color: #aaa;
-            text-align: center;
-        }
-
-        .video-pair video {
-            width: 100%;
-            border-radius: 8px;
-            display: block;
-            background: #000;
-        }
+        .video-pair { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px; }
+        .video-pair figure { margin:0; display:flex; flex-direction:column; gap:8px; }
+        .video-pair figcaption { font-size:0.8rem; color:#aaa; text-align:center; }
+        .video-pair video { width:100%; border-radius:8px; display:block; background:#000; }
 
         .video-placeholder {
-            background: #0f3460;
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 200px;
-            color: #aaa;
-            font-size: 0.85rem;
-            text-align: center;
-            padding: 16px;
+            background:#0f3460; border-radius:8px; display:flex;
+            align-items:center; justify-content:center;
+            min-height:200px; color:#aaa; font-size:0.85rem; text-align:center; padding:16px;
         }
 
-        .meta-bar {
-            display: flex;
-            gap: 16px;
-            margin-bottom: 16px;
-        }
+        .meta-bar { display:flex; gap:16px; margin-bottom:16px; }
+        .meta-stat { flex:1; background:#0f3460; border-radius:8px; padding:12px; text-align:center; }
+        .meta-stat .value { font-size:1.6rem; font-weight:bold; color:#e94560; }
+        .meta-stat .label { font-size:0.75rem; color:#aaa; margin-top:4px; }
 
-        .meta-stat {
-            flex: 1;
-            background: #0f3460;
-            border-radius: 8px;
-            padding: 12px;
-            text-align: center;
-        }
+        .events-section { margin-top:8px; }
+        .events-label { font-size:0.8rem; color:#aaa; margin-bottom:8px; }
 
-        .meta-stat .value {
-            font-size: 1.6rem;
-            font-weight: bold;
-            color: #e94560;
-        }
-
-        .meta-stat .label {
-            font-size: 0.75rem;
-            color: #aaa;
-            margin-top: 4px;
-        }
-
-        .events-section { margin-top: 8px; }
-
-        .events-label {
-            font-size: 0.8rem;
-            color: #aaa;
-            margin-bottom: 8px;
-        }
-
-        .events-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.82rem;
-        }
-
-        .events-table th {
-            background: #0f3460;
-            color: #aaa;
-            padding: 8px 12px;
-            text-align: left;
-            font-weight: 600;
-        }
-
-        .events-table td {
-            padding: 8px 12px;
-            border-bottom: 1px solid #0f3460;
-            color: #ccc;
-            vertical-align: middle;
-        }
-
-        .events-table tr:last-child td { border-bottom: none; }
-        .events-table tr:hover td { background: rgba(15, 52, 96, 0.4); }
-
-        .snapshot-thumb {
-            width: 80px;
-            height: 50px;
-            object-fit: cover;
-            border-radius: 4px;
-            cursor: pointer;
-            transition: transform 0.15s;
-        }
-
-        .snapshot-thumb:hover { transform: scale(1.05); }
+        .events-table { width:100%; border-collapse:collapse; font-size:0.82rem; }
+        .events-table th { background:#0f3460; color:#aaa; padding:8px 12px; text-align:left; font-weight:600; }
+        .events-table td { padding:8px 12px; border-bottom:1px solid #0f3460; color:#ccc; vertical-align:middle; }
+        .events-table tr:last-child td { border-bottom:none; }
+        .events-table tr:hover td { background:rgba(15,52,96,0.4); }
 
         .badge-alert {
-            background: #e94560;
-            color: #fff;
-            font-size: 0.7rem;
-            padding: 2px 8px;
-            border-radius: 999px;
-            font-weight: 600;
+            background:#e94560; color:#fff; font-size:0.7rem;
+            padding:2px 8px; border-radius:999px; font-weight:600;
         }
 
-        .progress-wrap { margin: 12px 0; }
+        .timestamp-range { display:flex; flex-direction:column; gap:2px; white-space:nowrap; }
+        .timestamp-range .range-line { font-size:0.82rem; color:#ccc; }
+        .timestamp-range .duration-line { font-size:0.75rem; color:#8aa; }
 
-        .progress-bar-bg {
-            background: #0f3460;
-            border-radius: 999px;
-            height: 8px;
-            overflow: hidden;
+        .event-media { display:flex; align-items:center; gap:8px; }
+
+        .event-clip { width:160px; height:100px; border-radius:4px; background:var(--card-bg, #16213e); display:block; }
+        .clip-pending {
+            width:160px; height:100px; border-radius:4px; background:#0f3460;
+            display:flex; align-items:center; justify-content:center;
+            font-size:0.7rem; color:#aaa; text-align:center; padding:4px;
         }
 
+        .progress-wrap { margin:12px 0; }
+        .progress-bar-bg { background:#0f3460; border-radius:999px; height:8px; overflow:hidden; }
         .progress-bar-fill {
-            height: 100%;
-            background: #e94560;
-            border-radius: 999px;
-            transition: width 0.4s ease;
-            width: 0%;
+            height:100%; background:#e94560; border-radius:999px;
+            transition:width 0.4s ease; width:0%;
         }
+        .progress-label { font-size:0.78rem; color:#aaa; margin-top:6px; }
+        .progress-eta   { font-size:0.75rem; color:#8aa;  margin-top:2px; }
 
-        .progress-label {
-            font-size: 0.78rem;
-            color: #aaa;
-            margin-top: 6px;
-        }
-
-        .progress-eta {
-            font-size: 0.75rem;
-            color: #8aa;
-            margin-top: 2px;
-        }
-
-        .processing-indicator {
-            text-align: center;
-            color: #aaa;
-            padding: 20px 0;
-            font-size: 0.9rem;
-        }
-
-        .empty-state { color: #aaa; padding: 40px 0; }
-        .empty-state a { color: #e94560; }
+        .processing-indicator { text-align:center; color:#aaa; padding:20px 0; font-size:0.9rem; }
+        .empty-state { color:#aaa; padding:40px 0; }
+        .empty-state a { color:#e94560; }
 
         .lightbox {
-            display: none;
-            position: fixed;
-            inset: 0;
-            background: rgba(0,0,0,0.85);
-            z-index: 1000;
-            align-items: center;
-            justify-content: center;
+            display:none; position:fixed; inset:0;
+            background:rgba(0,0,0,0.85); z-index:1000;
+            align-items:center; justify-content:center;
         }
-
-        .lightbox.open { display: flex; }
-
-        .lightbox img {
-            max-width: 90vw;
-            max-height: 90vh;
-            border-radius: 8px;
-        }
-
+        .lightbox.open { display:flex; }
+        .lightbox img { max-width:90vw; max-height:90vh; border-radius:8px; }
         .lightbox-close {
-            position: absolute;
-            top: 20px;
-            right: 24px;
-            font-size: 1.8rem;
-            color: #fff;
-            cursor: pointer;
-            background: none;
-            border: none;
-            line-height: 1;
+            position:absolute; top:20px; right:24px;
+            font-size:1.8rem; color:#fff; cursor:pointer;
+            background:none; border:none; line-height:1;
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <header>
-            <h1>Detection Results</h1>
-            <p class="subtitle">AI-analyzed video with dumping detection events</p>
-        </header>
+<div class="container">
+    <header>
+        <h1>Detection Results</h1>
+        <p class="subtitle">AI-analyzed video with dumping detection events</p>
+    </header>
 
-        <div class="gallery-panel">
-            <div class="panel-label">Results</div>
-
-            <div id="processingIndicator" class="processing-indicator" style="display:none">
-                ⏳ Uploading video and starting analysis...
-            </div>
-
-            <div id="emptyState" class="empty-state" style="display:none">
-                <p>No results found. <a href="index.html">Go back and upload a video.</a></p>
-            </div>
-
-            <div id="resultsGrid" class="results-grid"></div>
-
-            <div class="btn-row" style="margin-top: 24px; max-width: 320px;">
-                <button class="btn-upload" type="button" onclick="window.location.href='index.html'">Back</button>
-            </div>
+    <div class="gallery-panel">
+        <div class="panel-label">Results</div>
+        <div id="processingIndicator" class="processing-indicator" style="display:none">
+            ⏳ Uploading video and starting analysis...
+        </div>
+        <div id="emptyState" class="empty-state" style="display:none">
+            <p>No results found. <a href="index.html">Go back and upload a video.</a></p>
+        </div>
+        <div id="resultsGrid" class="results-grid"></div>
+        <div class="btn-row" style="margin-top:24px;max-width:320px;">
+            <button class="btn-upload" type="button" onclick="window.location.href='index.html'">Back</button>
         </div>
     </div>
+</div>
 
-    <div class="lightbox" id="lightbox" onclick="closeLightbox()">
-        <button class="lightbox-close" onclick="closeLightbox()">✕</button>
-        <img id="lightboxImg" src="" alt="Detection snapshot">
-    </div>
+<div class="lightbox" id="lightbox" onclick="closeLightbox()">
+    <button class="lightbox-close" onclick="closeLightbox()">✕</button>
+    <img id="lightboxImg" src="" alt="Detection snapshot">
+</div>
 
 <script>
-    // ========================================
-    // IndexedDB video loader
-    // ========================================
-    const _IDB_NAME  = 'oaklandDumping';
-    const _IDB_STORE = 'pendingVideos';
+// ========================================
+// IndexedDB video loader
+// ========================================
+const _IDB_NAME  = 'oaklandDumping';
+const _IDB_STORE = 'pendingVideos';
 
-    function _openDB() {
-        return new Promise((resolve, reject) => {
-            const req = indexedDB.open(_IDB_NAME, 1);
-            req.onupgradeneeded = e => e.target.result.createObjectStore(_IDB_STORE, { keyPath: 'id' });
-            req.onsuccess = e => resolve(e.target.result);
-            req.onerror   = e => reject(e.target.error);
+function _openDB() {
+    return new Promise((resolve, reject) => {
+        const req = indexedDB.open(_IDB_NAME, 1);
+        req.onupgradeneeded = e => e.target.result.createObjectStore(_IDB_STORE, { keyPath: 'id' });
+        req.onsuccess = e => resolve(e.target.result);
+        req.onerror   = e => reject(e.target.error);
+    });
+}
+
+function loadVideosForProcessing() {
+    return _openDB().then(db => new Promise((resolve, reject) => {
+        const tx  = db.transaction(_IDB_STORE, 'readonly');
+        const req = tx.objectStore(_IDB_STORE).getAll();
+        req.onsuccess = e => resolve(e.target.result);
+        req.onerror   = e => reject(e.target.error);
+    }));
+}
+
+// ========================================
+// Helpers
+// ========================================
+const BACKEND_URL      = 'http://127.0.0.1:8000/api/detect-video';
+const POLL_INTERVAL_MS = 4000;
+
+function openLightbox(src) {
+    document.getElementById('lightboxImg').src = src;
+    document.getElementById('lightbox').classList.add('open');
+}
+function closeLightbox() {
+    document.getElementById('lightbox').classList.remove('open');
+}
+
+function formatTime(sec) {
+    const m = Math.floor(sec / 60).toString().padStart(2, '0');
+    const s = (sec % 60).toFixed(1).padStart(4, '0');
+    return `${m}:${s}`;
+}
+
+function formatEta(seconds) {
+    if (!isFinite(seconds) || seconds < 0) return 'ETA: --';
+    const rounded = Math.max(0, Math.round(seconds));
+    const mins = Math.floor(rounded / 60);
+    const secs = rounded % 60;
+    return mins > 0 ? `ETA: ${mins}m ${String(secs).padStart(2,'0')}s` : `ETA: ${rounded}s`;
+}
+
+// Draw bbox overlay onto an offscreen canvas, resolve with data URL
+function drawSnapshotWithBox(b64, regions) {
+    return new Promise(resolve => {
+        const img = new Image();
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width  = img.width;
+            canvas.height = img.height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+            ctx.strokeStyle = '#e94560';
+            ctx.lineWidth   = Math.max(2, img.width / 300);
+            ctx.fillStyle   = '#e94560';
+            ctx.font        = `${Math.max(12, img.width / 80)}px sans-serif`;
+            regions.forEach(r => {
+                ctx.strokeRect(r.x, r.y, r.w, r.h);
+                ctx.fillText('DUMP', r.x + 2, Math.max(r.y - 4, 14));
+            });
+            resolve(canvas.toDataURL('image/jpeg', 0.92));
+        };
+        img.src = 'data:image/jpeg;base64,' + b64;
+    });
+}
+
+// Trim clip from originalVideoUrl [startSec, endSec] using MediaRecorder
+function trimClip(originalVideoUrl, startSec, endSec) {
+    return new Promise((resolve, reject) => {
+        const video = document.createElement('video');
+        video.src         = originalVideoUrl;
+        video.muted       = true;
+        video.crossOrigin = 'anonymous';
+
+        video.addEventListener('loadedmetadata', () => {
+            const stream   = video.captureStream();
+            const chunks   = [];
+            const mimeType = MediaRecorder.isTypeSupported('video/webm;codecs=vp9')
+                ? 'video/webm;codecs=vp9' : 'video/webm';
+            const rec = new MediaRecorder(stream, { mimeType });
+
+            rec.ondataavailable = e => { if (e.data.size > 0) chunks.push(e.data); };
+            rec.onstop  = () => resolve(URL.createObjectURL(new Blob(chunks, { type: mimeType })));
+            rec.onerror = reject;
+
+            video.currentTime = startSec;
+            video.addEventListener('seeked', function onSeeked() {
+                video.removeEventListener('seeked', onSeeked);
+                rec.start();
+                video.play();
+                setTimeout(() => { video.pause(); rec.stop(); }, (endSec - startSec) * 1000);
+            }, { once: true });
         });
+
+        video.addEventListener('error', reject);
+        video.load();
+    });
+}
+
+// ========================================
+// Build events table
+// ========================================
+function buildEventsTable(events, originalVideoUrl) {
+    if (!events || events.length === 0) {
+        return `<div class="video-placeholder" style="min-height:60px">No dumping events detected</div>`;
     }
 
-    function loadVideosForProcessing() {
-        return _openDB().then(db => new Promise((resolve, reject) => {
-            const tx  = db.transaction(_IDB_STORE, 'readonly');
-            const req = tx.objectStore(_IDB_STORE).getAll();
-            req.onsuccess = e => resolve(e.target.result);
-            req.onerror   = e => reject(e.target.error);
-        }));
-    }
+    const rows = events.map((ev, i) => {
+        const regionSummary = ev.regions.map(r => `${r.w}×${r.h}px (area ${r.area})`).join(', ');
 
-    // ========================================
-    // Helpers
-    // ========================================
-
-    const BACKEND_URL      = 'http://127.0.0.1:8000/api/detect-video';
-    const POLL_INTERVAL_MS = 4000;
-
-    function openLightbox(src) {
-        document.getElementById('lightboxImg').src = src;
-        document.getElementById('lightbox').classList.add('open');
-    }
-
-    function closeLightbox() {
-        document.getElementById('lightbox').classList.remove('open');
-    }
-
-    function formatTime(sec) {
-        const m = Math.floor(sec / 60).toString().padStart(2, '0');
-        const s = (sec % 60).toFixed(1).padStart(4, '0');
-        return `${m}:${s}`;
-    }
-
-    function formatEta(seconds) {
-        if (!isFinite(seconds) || seconds < 0) {
-            return 'ETA: --';
+        let timestampCell;
+        if (ev.appeared_at_sec != null && ev.last_seen_sec != null) {
+            timestampCell = `
+                <div class="timestamp-range">
+                    <span class="range-line">${formatTime(ev.appeared_at_sec)} → ${formatTime(ev.last_seen_sec)}</span>
+                    <span class="duration-line">${ev.duration_seconds}s on screen</span>
+                </div>`;
+        } else {
+            timestampCell = formatTime(ev.timestamp_sec);
         }
 
-        const rounded = Math.max(0, Math.round(seconds));
-        const minutes = Math.floor(rounded / 60);
-        const remainingSeconds = rounded % 60;
+        const mediaCell = ev.snapshot ? `
+            <div class="event-media">
+                <div class="clip-pending" id="clip-wrap-${i}">⏳ trimming…</div>
+            </div>` : '—';
 
-        if (minutes > 0) {
-            return 'ETA: ' + minutes + 'm ' + String(remainingSeconds).padStart(2, '0') + 's';
-        }
-
-        return 'ETA: ' + rounded + 's';
-    }
-
-    function buildEventsTable(events) {
-        if (!events || events.length === 0) {
-            return `<div class="video-placeholder" style="min-height:60px">No dumping events detected</div>`;
-        }
-        const rows = events.map((ev, i) => {
-            const regionSummary = ev.regions.map(r => `${r.w}×${r.h}px (area ${r.area})`).join(', ');
-            const snapshotCell = ev.snapshot
-                ? `<img class="snapshot-thumb" src="data:image/jpeg;base64,${ev.snapshot}" alt="Frame snapshot" onclick="openLightbox(this.src)">`
-                : '—';
-            return `
-                <tr>
-                    <td>${i + 1}</td>
-                    <td><span class="badge-alert">ALERT</span></td>
-                    <td>${formatTime(ev.timestamp_sec)}</td>
-                    <td>Person #${ev.person_id}</td>
-                    <td>${ev.regions.length} region(s) — ${regionSummary}</td>
-                    <td>${snapshotCell}</td>
-                </tr>`;
-        }).join('');
         return `
-            <table class="events-table">
-                <thead>
-                    <tr>
-                        <th>#</th><th>Status</th><th>Timestamp</th>
-                        <th>Subject</th><th>Regions</th><th>Frame</th>
-                    </tr>
-                </thead>
-                <tbody>${rows}</tbody>
-            </table>`;
-    }
+            <tr>
+                <td>${i + 1}</td>
+                <td><span class="badge-alert">ALERT</span></td>
+                <td>${timestampCell}</td>
+                <td>Person #${ev.person_id}</td>
+                <td>${ev.regions.length} region(s) — ${regionSummary}</td>
+                <td>${mediaCell}</td>
+            </tr>`;
+    }).join('');
 
-    function pollUntilDone(jobId, progressBarFill, progressLabel, progressEta) {
-        const startedAt = Date.now();
+    const html = `
+        <table class="events-table">
+            <thead>
+                <tr>
+                    <th>#</th><th>Status</th><th>Timestamp Range</th>
+                    <th>Subject</th><th>Regions</th><th>Incident Clip</th>
+                </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+        </table>`;
 
-        function updateProgressEstimate(progress) {
-            if (!isFinite(progress) || progress <= 0) {
-                progressEta.textContent = 'ETA: calculating…';
-                return;
-            }
+    // Populate canvases + clips after DOM is ready
+    setTimeout(() => {
+        events.forEach((ev, i) => {
+            if (!ev.snapshot) return;
 
-            if (progress >= 100) {
-                progressEta.textContent = 'ETA: 0s';
-                return;
-            }
-
-            const elapsedSeconds = (Date.now() - startedAt) / 1000;
-            const estimatedTotalSeconds = elapsedSeconds / (progress / 100);
-            progressEta.textContent = formatEta(estimatedTotalSeconds - elapsedSeconds);
-        }
-
-        return new Promise((resolve, reject) => {
-            const interval = setInterval(function() {
-                fetch(BACKEND_URL + '/' + jobId)
-                    .then(r => r.json())
-                    .then(data => {
-                        const progress = Number(data.progress) || 0;
-                        progressBarFill.style.width = progress + '%';
-                        progressLabel.textContent   = 'Processing… ' + progress + '%';
-                        updateProgressEstimate(progress);
-                        if (data.status === 'complete') {
-                            clearInterval(interval);
-                            progressEta.textContent = 'ETA: done';
-                            resolve(data.result);
-                        } else if (data.status === 'error') {
-                            clearInterval(interval);
-                            progressEta.textContent = 'ETA: --';
-                            reject(new Error(data.error || 'Unknown error'));
-                        }
-                    })
-                    .catch(err => { clearInterval(interval); reject(err); });
-            }, POLL_INTERVAL_MS);
+            // Trim clip from original video
+            const BUFFER = 2;
+            const vidEl  = document.querySelector(`video[src="${originalVideoUrl}"]`);
+            const vidDur = vidEl ? vidEl.duration : Infinity;
+            const start  = Math.max(0, (ev.appeared_at_sec ?? ev.timestamp_sec) - BUFFER);
+            const end    = Math.min(vidDur, (ev.last_seen_sec ?? ev.timestamp_sec) + BUFFER);
+            trimClip(originalVideoUrl, start, end).then(clipUrl => {
+                const wrap = document.getElementById('clip-wrap-' + i);
+                if (!wrap) return;
+                const vid = document.createElement('video');
+                vid.src       = clipUrl;
+                vid.controls  = true;
+                vid.className = 'event-clip';
+                wrap.replaceWith(vid);
+            }).catch(() => {
+                const wrap = document.getElementById('clip-wrap-' + i);
+                if (wrap) wrap.textContent = 'clip unavailable';
+            });
         });
+    }, 0);
+
+    return html;
+}
+
+// ========================================
+// Polling
+// ========================================
+function pollUntilDone(jobId, progressBarFill, progressLabel, progressEta) {
+    const startedAt = Date.now();
+
+    function updateProgressEstimate(progress) {
+        if (!isFinite(progress) || progress <= 0) { progressEta.textContent = 'ETA: calculating…'; return; }
+        if (progress >= 100) { progressEta.textContent = 'ETA: 0s'; return; }
+        const elapsed = (Date.now() - startedAt) / 1000;
+        progressEta.textContent = formatEta(elapsed / (progress / 100) - elapsed);
     }
 
-    // ========================================
-    // Main
-    // ========================================
+    return new Promise((resolve, reject) => {
+        const interval = setInterval(() => {
+            fetch(BACKEND_URL + '/' + jobId)
+                .then(r => r.json())
+                .then(data => {
+                    const progress = Number(data.progress) || 0;
+                    progressBarFill.style.width = progress + '%';
+                    progressLabel.textContent   = 'Processing… ' + progress + '%';
+                    updateProgressEstimate(progress);
+                    if (data.status === 'complete') {
+                        clearInterval(interval);
+                        progressEta.textContent = 'ETA: done';
+                        resolve(data.result);
+                    } else if (data.status === 'error') {
+                        clearInterval(interval);
+                        progressEta.textContent = 'ETA: --';
+                        reject(new Error(data.error || 'Unknown error'));
+                    }
+                })
+                .catch(err => { clearInterval(interval); reject(err); });
+        }, POLL_INTERVAL_MS);
+    });
+}
 
-    function runDetectionAndRender() {
-        loadVideosForProcessing()
-            .then(function(stored) {
-                if (!stored || stored.length === 0) {
-                    document.getElementById('emptyState').style.display = 'block';
-                    return;
-                }
-
-                var originalVideos = stored.map(function(v) {
-                    return { name: v.name, dataUrl: URL.createObjectURL(v.file), file: v.file };
-                });
-
-                var grid      = document.getElementById('resultsGrid');
-                var indicator = document.getElementById('processingIndicator');
-                indicator.style.display = 'block';
-
-                var chain = Promise.resolve();
-                originalVideos.forEach(function(item) {
-                    chain = chain.then(function() {
-                        return processVideo(item, grid);
-                    });
-                });
-                chain.then(function() {
-                    indicator.style.display = 'none';
-                });
-            })
-            .catch(function(err) {
-                console.error('Failed to load videos from IndexedDB:', err);
+// ========================================
+// Main
+// ========================================
+function runDetectionAndRender() {
+    loadVideosForProcessing()
+        .then(stored => {
+            if (!stored || stored.length === 0) {
                 document.getElementById('emptyState').style.display = 'block';
-            });
-    }
+                return;
+            }
+            const originalVideos = stored.map(v => ({
+                name: v.name, dataUrl: URL.createObjectURL(v.file), file: v.file
+            }));
+            const grid      = document.getElementById('resultsGrid');
+            const indicator = document.getElementById('processingIndicator');
+            indicator.style.display = 'block';
+            let chain = Promise.resolve();
+            originalVideos.forEach(item => { chain = chain.then(() => processVideo(item, grid)); });
+            chain.then(() => { indicator.style.display = 'none'; });
+        })
+        .catch(err => {
+            console.error('Failed to load videos from IndexedDB:', err);
+            document.getElementById('emptyState').style.display = 'block';
+        });
+}
 
-    function processVideo(item, grid) {
-        var name    = item.name;
-        var dataUrl = item.dataUrl;
-        var file    = item.file;
-        var escapedName = CSS.escape(name);
+function processVideo(item, grid) {
+    const { name, dataUrl, file } = item;
+    const esc = CSS.escape(name);
 
-        var row = document.createElement('div');
-        row.className = 'result-row';
-        row.innerHTML =
-            '<h3>🎞️ ' + name + '</h3>' +
-            '<div class="video-pair">' +
-                '<figure>' +
-                    '<video src="' + dataUrl + '" controls></video>' +
-                    '<figcaption>Original</figcaption>' +
-                '</figure>' +
-                '<figure>' +
-                    '<div class="video-placeholder" id="outputPane-' + escapedName + '">⏳ Processing…</div>' +
-                    '<figcaption>Analysis Output</figcaption>' +
-                '</figure>' +
-            '</div>' +
-            '<div class="progress-wrap" id="progressWrap-' + escapedName + '">' +
-                '<div class="progress-bar-bg">' +
-                    '<div class="progress-bar-fill" id="progressFill-' + escapedName + '"></div>' +
-                '</div>' +
-                '<div class="progress-label" id="progressLabel-' + escapedName + '">Uploading…</div>' +
-                '<div class="progress-eta" id="progressEta-' + escapedName + '">ETA: calculating…</div>' +
-            '</div>' +
-            '<div class="meta-bar" id="metaBar-' + escapedName + '" style="display:none">' +
-                '<div class="meta-stat"><div class="value" id="statFrames-' + escapedName + '">—</div><div class="label">Frames Processed</div></div>' +
-                '<div class="meta-stat"><div class="value" id="statDetections-' + escapedName + '">—</div><div class="label">Dumping Events</div></div>' +
-                '<div class="meta-stat"><div class="value" id="statDuration-' + escapedName + '">—</div><div class="label">Last Event (s)</div></div>' +
-            '</div>' +
-            '<div class="events-section" id="eventsSection-' + escapedName + '"></div>';
-        grid.appendChild(row);
+    const row = document.createElement('div');
+    row.className = 'result-row';
+    row.innerHTML =
+        `<h3>🎞️ ${name}</h3>
+        <div class="video-pair">
+            <figure>
+                <video src="${dataUrl}" controls></video>
+                <figcaption>Original</figcaption>
+            </figure>
+            <figure>
+                <div class="video-placeholder" id="outputPane-${esc}">⏳ Processing…</div>
+                <figcaption>Analysis Output</figcaption>
+            </figure>
+        </div>
+        <div class="progress-wrap" id="progressWrap-${esc}">
+            <div class="progress-bar-bg">
+                <div class="progress-bar-fill" id="progressFill-${esc}"></div>
+            </div>
+            <div class="progress-label" id="progressLabel-${esc}">Uploading…</div>
+            <div class="progress-eta"   id="progressEta-${esc}">ETA: calculating…</div>
+        </div>
+        <div class="meta-bar" id="metaBar-${esc}" style="display:none">
+            <div class="meta-stat"><div class="value" id="statFrames-${esc}">—</div><div class="label">Frames Processed</div></div>
+            <div class="meta-stat"><div class="value" id="statDetections-${esc}">—</div><div class="label">Dumping Events</div></div>
+            <div class="meta-stat"><div class="value" id="statDuration-${esc}">—</div><div class="label">Drop Time (s)</div></div>
+        </div>
+        <div class="events-section" id="eventsSection-${esc}"></div>`;
+    grid.appendChild(row);
 
-        var progressFill  = document.getElementById('progressFill-'  + escapedName);
-        var progressLabel = document.getElementById('progressLabel-' + escapedName);
-        var progressEta   = document.getElementById('progressEta-'   + escapedName);
-        var outputPane    = document.getElementById('outputPane-'    + escapedName);
+    const progressFill  = document.getElementById('progressFill-'  + esc);
+    const progressLabel = document.getElementById('progressLabel-' + esc);
+    const progressEta   = document.getElementById('progressEta-'   + esc);
+    const outputPane    = document.getElementById('outputPane-'    + esc);
 
-        var formData = new FormData();
-        formData.append('video', file, name);
-        formData.append('skip_frames', '9');
+    const formData = new FormData();
+    formData.append('video', file, name);
+    formData.append('skip_frames', '9');
 
-        return fetch(BACKEND_URL, { method: 'POST', body: formData })
-            .then(function(res) {
-                if (!res.ok) throw new Error('Upload failed: ' + res.status);
-                return res.json();
-            })
-            .then(function(data) {
-                progressLabel.textContent = 'Analyzing video…';
-                progressEta.textContent = 'ETA: calculating…';
-                return pollUntilDone(data.job_id, progressFill, progressLabel, progressEta);
-            })
-            .then(function(result) {
-                document.getElementById('progressWrap-' + escapedName).style.display = 'none';
+    return fetch(BACKEND_URL, { method: 'POST', body: formData })
+        .then(res => { if (!res.ok) throw new Error('Upload failed: ' + res.status); return res.json(); })
+        .then(data => {
+            progressLabel.textContent = 'Analyzing video…';
+            progressEta.textContent   = 'ETA: calculating…';
+            return pollUntilDone(data.job_id, progressFill, progressLabel, progressEta);
+        })
+        .then(result => {
+            document.getElementById('progressWrap-' + esc).style.display = 'none';
 
-                var lastEvent   = result.events && result.events.length > 0 ? result.events[result.events.length - 1] : null;
-                var durationSec = lastEvent ? lastEvent.timestamp_sec : '—';
-                document.getElementById('statFrames-'     + escapedName).textContent = result.total_frames_processed;
-                document.getElementById('statDetections-' + escapedName).textContent = result.total_detections;
-                document.getElementById('statDuration-'   + escapedName).textContent = durationSec;
-                document.getElementById('metaBar-'        + escapedName).style.display = 'flex';
+            const lastEvent = result.events?.length > 0 ? result.events[result.events.length - 1] : null;
+            document.getElementById('statFrames-'     + esc).textContent = result.total_frames_processed;
+            document.getElementById('statDetections-' + esc).textContent = result.total_detections;
+            document.getElementById('statDuration-'   + esc).textContent = lastEvent
+                ? (lastEvent.last_seen_sec ?? lastEvent.timestamp_sec) : '—';
+            document.getElementById('metaBar-' + esc).style.display = 'flex';
 
-                document.getElementById('eventsSection-' + escapedName).innerHTML =
-                    '<div class="events-label">Detection Events</div>' +
-                    buildEventsTable(result.events);
+            document.getElementById('eventsSection-' + esc).innerHTML =
+                '<div class="events-label">Detection Events</div>' +
+                buildEventsTable(result.events, dataUrl);
 
-                outputPane.outerHTML = result.total_detections > 0
-                    ? '<video controls style="width:100%;border-radius:8px;background:#000" src="http://127.0.0.1:8000/api/video-output/' + result.output_video_job_id + '"></video>'
-                    : '<video controls style="width:100%;border-radius:8px;background:#000" src="http://127.0.0.1:8000/api/video-output/' + result.output_video_job_id + '"></video>';
-            })
-            .catch(function(err) {
-                console.error('Detection failed for ' + name + ':', err);
-                progressLabel.textContent = 'Error: ' + err.message;
-                outputPane.textContent    = 'Detection failed: ' + err.message;
-            });
-    }
+            outputPane.outerHTML = `<video controls style="width:100%;border-radius:8px;background:#000"
+                src="http://127.0.0.1:8000/api/video-output/${result.output_video_job_id}"></video>`;
+        })
+        .catch(err => {
+            console.error('Detection failed for ' + name + ':', err);
+            progressLabel.textContent = 'Error: ' + err.message;
+            outputPane.textContent    = 'Detection failed: ' + err.message;
+        });
+}
 
-    runDetectionAndRender();
+runDetectionAndRender();
 </script>
 </body>
 </html>

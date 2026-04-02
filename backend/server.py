@@ -201,6 +201,7 @@ def run_video_detection(job_id: str, video_path: str, skip_frames: int = 9):
         people_last_box   = {}
         people_last_seen  = {}
         people_first_seen = {}
+        people_last_frame = {}  # pid -> actual frame image at last_seen
         disappeared       = set()
         historical_frames = {}
         detection_events  = []
@@ -282,8 +283,9 @@ def run_video_detection(job_id: str, video_path: str, skip_frames: int = 9):
                 pid = p['id']
                 if pid in disappeared:
                     continue
-                people_last_seen[pid] = frame_idx
-                people_last_box[pid]  = p['box']
+                people_last_seen[pid]  = frame_idx
+                people_last_box[pid]   = p['box']
+                people_last_frame[pid] = frame.copy()
                 if pid not in people_paths:
                     people_init_box[pid]   = p['box']
                     people_first_seen[pid] = frame_idx
@@ -299,23 +301,30 @@ def run_video_detection(job_id: str, video_path: str, skip_frames: int = 9):
                 if pid not in disappeared and (frame_idx - last) / fps >= DISAPPEAR_SECONDS
             ]
 
+            # Helper: bbox center
+            def bbox_center(box):
+                return ((box[0] + box[2]) / 2, (box[1] + box[3]) / 2)
+
             for pid in ids_to_check:
-                init_box        = people_init_box[pid]
                 last_box        = people_last_box[pid]
                 first_seen_idx  = people_first_seen[pid]
+                last_frame      = people_last_frame.get(pid)  # frame at moment of drop
                 elapsed_missing = (frame_idx - people_last_seen[pid]) / fps
 
-                # Find the historical frame closest to just before this person appeared
-                ref_candidates = {k: v for k, v in historical_frames.items() if k < first_seen_idx}
-                ref_frame = ref_candidates[max(ref_candidates)] if ref_candidates else None
-
-                if ref_frame is None:
-                    print(f"[job {job_id}] pid={pid}: no reference frame available, skipping")
+                if last_frame is None:
+                    print(f"[job {job_id}] pid={pid}: no last frame available, skipping")
                     disappeared.add(pid)
                     for d in [people_paths, people_tips, people_last_seen,
-                              people_init_box, people_last_box, people_first_seen]:
+                              people_init_box, people_last_box, people_first_seen, people_last_frame]:
                         d.pop(pid, None)
                     continue
+
+                # Find the current frame (after person has cleared) as the "after" reference.
+                # Compare against the frame captured at the person's last seen moment (the drop frame).
+                # This avoids the stale-ref-frame problem where other people/objects
+                # already polluted the "before" snapshot.
+                roi_ref = last_frame  # what the scene looked like when they dropped
+                roi_now = frame       # what it looks like now that they've left
 
                 # Build padded ROI around the person's LAST known position (where they dropped)
                 x1, y1, x2, y2 = last_box
@@ -325,22 +334,22 @@ def run_video_detection(job_id: str, video_path: str, skip_frames: int = 9):
                 rx2 = min(w, x2 + pad)
                 ry2 = min(h, y2 + pad)
 
-                roi_now = frame[ry1:ry2, rx1:rx2]
-                roi_ref = ref_frame[ry1:ry2, rx1:rx2]
+                roi_now_crop = roi_now[ry1:ry2, rx1:rx2]
+                roi_ref_crop = roi_ref[ry1:ry2, rx1:rx2]
 
-                if roi_now.size == 0 or roi_ref.size == 0:
+                if roi_now_crop.size == 0 or roi_ref_crop.size == 0:
                     print(f"[job {job_id}] pid={pid}: empty ROI, skipping")
                     disappeared.add(pid)
                     for d in [people_paths, people_tips, people_last_seen,
-                              people_init_box, people_first_seen]:
+                              people_init_box, people_first_seen, people_last_frame]:
                         d.pop(pid, None)
                     continue
 
-                mask_now = np.ones((roi_now.shape[0], roi_now.shape[1]), dtype=np.uint8) * 255
-                mask_ref = np.ones((roi_ref.shape[0], roi_ref.shape[1]), dtype=np.uint8) * 255
+                mask_now = np.ones((roi_now_crop.shape[0], roi_now_crop.shape[1]), dtype=np.uint8) * 255
+                mask_ref = np.ones((roi_ref_crop.shape[0], roi_ref_crop.shape[1]), dtype=np.uint8) * 255
 
                 score, ct_score, e_score, _, ct_details, e_details, duration_ms = \
-                    area_comprehensive_similarity(roi_ref, mask_ref, roi_now, mask_now)
+                    area_comprehensive_similarity(roi_ref_crop, mask_ref, roi_now_crop, mask_now)
 
                 is_dump = score >= SIMILARITY_THRESHOLD
 
@@ -353,26 +362,70 @@ def run_video_detection(job_id: str, video_path: str, skip_frames: int = 9):
                 )
 
                 if is_dump:
-                    timestamp_sec = round(frame_idx / fps, 2)
+                    # ---- Option 3: assign event to whoever was closest to the drop ROI ----
+                    # ROI centroid
+                    roi_cx = (rx1 + rx2) / 2
+                    roi_cy = (ry1 + ry2) / 2
+
+                    # All tracked people still on screen + the disappeared person itself
+                    all_candidates = {
+                        p: people_last_box[p]
+                        for p in people_last_box
+                        if p not in disappeared
+                    }
+                    all_candidates[pid] = last_box  # include the disappearing person
+
+                    # Find closest person to the ROI centroid at their last known position
+                    def dist_to_roi(box):
+                        cx, cy = bbox_center(box)
+                        return ((cx - roi_cx) ** 2 + (cy - roi_cy) ** 2) ** 0.5
+
+                    responsible_pid = min(all_candidates, key=lambda p: dist_to_roi(all_candidates[p]))
+                    responsible_box = all_candidates[responsible_pid]
+
+                    if responsible_pid != pid:
+                        print(
+                            f"[job {job_id}] Reassigned dump from pid={pid} "
+                            f"to closer pid={responsible_pid} "
+                            f"(dist={dist_to_roi(responsible_box):.1f}px vs "
+                            f"{dist_to_roi(last_box):.1f}px)"
+                        )
+
+                    # Use the responsible person's timing
+                    r_first_seen = people_first_seen.get(responsible_pid, first_seen_idx)
+                    r_last_seen  = people_last_seen.get(responsible_pid, people_last_seen[pid])
+
+                    appeared_at_sec  = round(r_first_seen / fps, 2)
+                    last_seen_sec    = round(r_last_seen / fps, 2)
+                    timestamp_sec    = round(frame_idx / fps, 2)
+                    duration_seconds = round(last_seen_sec - appeared_at_sec, 2)
+
                     regions = [{'x': int(rx1), 'y': int(ry1), 'w': int(rx2 - rx1), 'h': int(ry2 - ry1),
                                 'area': int((rx2 - rx1) * (ry2 - ry1))}]
                     _, buf = cv2.imencode('.jpg', frame)
                     frame_b64 = base64.b64encode(buf).decode('utf-8')
                     detection_events.append({
-                        'person_id':        int(pid),
+                        'person_id':        int(responsible_pid),
                         'frame':            int(frame_idx),
+                        'appeared_at_sec':  appeared_at_sec,
+                        'last_seen_sec':    last_seen_sec,
                         'timestamp_sec':    timestamp_sec,
+                        'duration_seconds': duration_seconds,
                         'regions':          regions,
                         'snapshot':         frame_b64,
                         'similarity_score': round(float(score), 4),
                     })
-                    print(f"[job {job_id}] DETECTION at {timestamp_sec}s, pid={pid}, score={score:.3f}")
+                    print(
+                        f"[job {job_id}] DETECTION at {timestamp_sec}s, pid={responsible_pid}, score={score:.3f} "
+                        f"| appeared={appeared_at_sec}s -> dropped={last_seen_sec}s "
+                        f"({duration_seconds}s on screen)"
+                    )
                 else:
                     print(f"[job {job_id}] No event for pid={pid}: score={score:.3f} < {SIMILARITY_THRESHOLD}")
 
                 disappeared.add(pid)
                 for d in [people_paths, people_tips, people_last_seen,
-                          people_init_box, people_last_box, people_first_seen]:
+                          people_init_box, people_last_box, people_first_seen, people_last_frame]:
                     d.pop(pid, None)
 
             # ---- Build quad view scaled to w x h ----
