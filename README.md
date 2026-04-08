@@ -40,6 +40,10 @@ To handle this, we first use YOLO to "whitelist" some common objects, like cars 
 If the confidence is higher than 0.6, the program will trigger the alert.
 
 This process can reach at least 4.5 frames per second, and as fast as 12 frames per second depends on the number of people in the scene.
+
+After that, I noiced the YoloV26l model is not so good at recognizing people from the camera angle, so I tried to look for datasets online. There are two datasets I found: VisDrone and OD-VIRAT Tiny. After I got both datasets, I found that OD-VIRAT Tiny has a lot of similar frames, which can cause overfitting. In this case, I only used Visdrone to train the model. I first trained a large model, and the result is good. However, I tried to let the inference be faster, so I also trained a small model with Visdrone, but the result is not so good and it false positives a lot.
+
+In the end, I chose to use the large model.
 ```
 
 * Designed an API backend which can be used in the future: See [1234567Yang/IllegalDumpingAPIBackend](https://github.com/1234567Yang/IllegalDumpingAPIBackend)
