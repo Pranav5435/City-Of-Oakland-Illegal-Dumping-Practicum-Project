@@ -14,6 +14,35 @@ As the person who was mostly in charge of gather images and labeling images, I h
 
 ## Haoyang:
 
+* Designed the dynamic process of detecting illegal dumpings with 3 iterations, the code is on [colab](https://colab.research.google.com/drive/1yD4aRgR36VuThiYNIqRP35prEBQF5KQ1#scrollTo=YsMzcQIOBJr9)
+
+```
+My first version detects human skeletons and tries to see if hands connect to anything. However, I abandoned this method after some testing. First of all, because it's from the camera's angle, the skeletons are not that clear. Secondly, it requires someone to hold the trash continuously for 3 seconds to avoid false positives, which is not very practical.
+
+In this case, I switched to the current method:
+
+Two foreground extractors named A and B. I use the CNT foreground extractor. A has a fast learning rate, and B has a slow learning rate, which means that A can absorb new objects faster and B is slower.
+
+When a person enters the area, YOLO will assign that person an ID, and after that ID has left the area for a certain number of seconds, we can say that that person has disappeared. However, the YOLO tracking algorithm is not as good as I thought, so I also use CNT A to enhance this tracking process.
+
+Once the person has disappeared, we can look through their path and see if there is any change, as CNT B has a slow learning rate and new objects have not been absorbed yet.
+
+If there is a change, there are two situations:
+
+    A new object
+    A disappeared object
+
+
+To handle this, we first use YOLO to "whitelist" some common objects, like cars and bicycles. After that, I use contour extraction to see if the object has very complex contours, as trash usually has much more complex contours than the background. I also use color comparison to see if that area has a very unusual color, as trash usually comes in all different kinds of colors.
+
+If the confidence is higher than 0.6, the program will trigger the alert.
+
+This process can reach at least 4.5 frames per second, and as fast as 6 frames per second depends on the number of people in the scene.
+```
+
+* Designed an API backend which can be used in the future: See [1234567Yang/IllegalDumpingAPIBackend](https://github.com/1234567Yang/IllegalDumpingAPIBackend)
+* Designed the database structure with 1-3NF: See [database/](database/)
+
 
 # OaklandDumpingFrontend
 Frontend dashboard for Oakland illegal dumping detection system
