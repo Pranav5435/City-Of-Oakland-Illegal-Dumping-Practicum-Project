@@ -19,6 +19,8 @@ As the person who was mostly in charge of gather images and labeling images, I h
 ```
 My first version detects human skeletons and tries to see if hands connect to anything. However, I abandoned this method after some testing. First of all, because it's from the camera's angle, the skeletons are not that clear. Secondly, it requires someone to hold the trash continuously for 3 seconds to avoid false positives, which is not very practical.
 
+The second version I swiched to SAM2 and use the finger edge as the detection point, while the trash might move left and right causing the point is not stable. I tried to switch to multipoints labeling for SAM2, but it costs too much time and it's not stable as well. The skeleton detection also not works too well.
+
 In this case, I switched to the current method:
 
 Two foreground extractors named A and B. I use the CNT foreground extractor. A has a fast learning rate, and B has a slow learning rate, which means that A can absorb new objects faster and B is slower.
@@ -37,11 +39,11 @@ To handle this, we first use YOLO to "whitelist" some common objects, like cars 
 
 If the confidence is higher than 0.6, the program will trigger the alert.
 
-This process can reach at least 4.5 frames per second, and as fast as 6 frames per second depends on the number of people in the scene.
+This process can reach at least 4.5 frames per second, and as fast as 12 frames per second depends on the number of people in the scene.
 ```
 
 * Designed an API backend which can be used in the future: See [1234567Yang/IllegalDumpingAPIBackend](https://github.com/1234567Yang/IllegalDumpingAPIBackend)
-* Designed the database structure with 1-3NF: See [database/](database/)
+* Designed the database structure and write the code (MySQL) with 1-3NF: See [database/](database/)
 
 
 # OaklandDumpingFrontend
