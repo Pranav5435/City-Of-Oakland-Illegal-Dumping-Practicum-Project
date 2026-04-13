@@ -12,6 +12,12 @@ As the person who was mostly in charge of gather images and labeling images, I h
 
 ## Henry:
 
+Designed the static process of detecting illegal dumping within stationary images. I accomplished this by using roboflow and uloading images from our dataset to train the pre-exiting roboflow model (RF-DETR). The project then uses Roboflow's serverless API for the model I trained to create trash detection boxes within images. At this time Roboflow did not support the ability to download the model we trained, using an API was the only method we had to detect trash within images. 
+
+The project runs two processes simultaneously for the backend: the image detection processes and the map hosting process. Both are run automatically with the command `python run_all.py`. This lets the frontend communicate with the backend by making a request from a local sever, because it can not do so directly from the frontend because of CORS.This also emulates how it would work if the frontend were actually hosten on a city of Oakland server this would generally match the process it would go to. 
+
+The trash detection method lives within `find_trashes` inside `server.py`, and is added to the frontend route `'/api/detect'`. The actual display for the results is contained within `processed-static.html` for the display. The only thing of note is to add the API key in within the `.env` file: `ROBOFLOW_API_KEY=`. 
+
 ## Haoyang:
 
 * Designed the dynamic process of detecting illegal dumpings with 3 iterations, the code is on [colab](https://colab.research.google.com/drive/1yD4aRgR36VuThiYNIqRP35prEBQF5KQ1#scrollTo=YsMzcQIOBJr9)
