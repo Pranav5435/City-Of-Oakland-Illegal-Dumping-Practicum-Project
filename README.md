@@ -21,6 +21,7 @@ The trash detection method lives within `find_trashes` inside `server.py`, and i
 ## Haoyang:
 
 * Designed the dynamic process of detecting illegal dumpings with 3 iterations, the code is on [colab](https://colab.research.google.com/drive/1yD4aRgR36VuThiYNIqRP35prEBQF5KQ1#scrollTo=YsMzcQIOBJr9)
+  * I am also working on a much more detailed write up about the process: https://github.com/1234567Yang/IllegalDumpingDynamicCameraDetection/
 
 ```
 My first version detects human skeletons and tries to see if hands connect to anything. However, I abandoned this method after some testing. First of all, because it's from the camera's angle, the skeletons are not that clear. Secondly, it requires someone to hold the trash continuously for 3 seconds to avoid false positives, which is not very practical.
