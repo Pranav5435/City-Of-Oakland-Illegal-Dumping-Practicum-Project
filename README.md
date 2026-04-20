@@ -10,6 +10,8 @@ As the person who was mostly in charge of gather images and labeling images, I h
 
 ## Naya:
 
+Contributed to dataset development through image collection and bounding box annotation for training the detection models. Designed and built the project's frontend interface using HTML, CSS, and JavaScript — serving as the primary demo and showcase layer for the pipeline. Responsible for integrating the two core models into a unified frontend experience, using JSON serialization to handle data exchange between model outputs and the UI.
+
 ## Henry:
 
 Designed the static process of detecting illegal dumping within stationary images. I accomplished this by using roboflow and uloading images from our dataset to train the pre-exiting roboflow model (RF-DETR). The project then uses Roboflow's serverless API for the model I trained to create trash detection boxes within images. At this time Roboflow did not support the ability to download the model we trained, using an API was the only method we had to detect trash within images. 
